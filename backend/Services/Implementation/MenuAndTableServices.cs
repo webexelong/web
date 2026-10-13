@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WebCafe.Backend.Common.Exceptions;
 using WebCafe.Backend.Infrastructure.Data;
 using WebCafe.Backend.Models.DTOs.Menu;
@@ -244,7 +244,34 @@ namespace WebCafe.Backend.Services.Implementation
             _db.MenuItems.Add(item);
             await _db.SaveChangesAsync();
 
-            if (dto.SizeIds != null && dto.SizeIds.Any())
+            if (dto.CustomSizes != null && dto.CustomSizes.Any())
+            {
+                foreach (var cs in dto.CustomSizes)
+                {
+                    int sizeId = cs.SizeId ?? 0;
+                    if (sizeId <= 0 && !string.IsNullOrWhiteSpace(cs.SizeName))
+                    {
+                        var name = cs.SizeName.Trim();
+                        var existingSize = await _db.Sizes.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Name.ToLower() == name.ToLower());
+                        if (existingSize != null)
+                        {
+                            sizeId = existingSize.SizeId;
+                        }
+                        else
+                        {
+                            var newSize = new Size { TenantId = tenantId, Name = name };
+                            _db.Sizes.Add(newSize);
+                            await _db.SaveChangesAsync();
+                            sizeId = newSize.SizeId;
+                        }
+                    }
+                    if (sizeId > 0)
+                    {
+                        _db.MenuItemSizes.Add(new MenuItemSize { MenuItemId = item.MenuItemId, SizeId = sizeId, ExtraPrice = cs.ExtraPrice });
+                    }
+                }
+            }
+            else if (dto.SizeIds != null && dto.SizeIds.Any())
             {
                 foreach (var sId in dto.SizeIds)
                 {
@@ -278,6 +305,38 @@ namespace WebCafe.Backend.Services.Implementation
             item.IsAvailable = dto.IsAvailable;
             item.SortOrder = dto.SortOrder;
             item.UpdatedAt = DateTime.UtcNow;
+
+            // Cập nhật Sizes
+            if (dto.CustomSizes != null)
+            {
+                var existingSizes = await _db.MenuItemSizes.Where(ms => ms.MenuItemId == item.MenuItemId).ToListAsync();
+                _db.MenuItemSizes.RemoveRange(existingSizes);
+
+                foreach (var cs in dto.CustomSizes)
+                {
+                    int sizeId = cs.SizeId ?? 0;
+                    if (sizeId <= 0 && !string.IsNullOrWhiteSpace(cs.SizeName))
+                    {
+                        var name = cs.SizeName.Trim();
+                        var existingSize = await _db.Sizes.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Name.ToLower() == name.ToLower());
+                        if (existingSize != null)
+                        {
+                            sizeId = existingSize.SizeId;
+                        }
+                        else
+                        {
+                            var newSize = new Size { TenantId = tenantId, Name = name };
+                            _db.Sizes.Add(newSize);
+                            await _db.SaveChangesAsync();
+                            sizeId = newSize.SizeId;
+                        }
+                    }
+                    if (sizeId > 0)
+                    {
+                        _db.MenuItemSizes.Add(new MenuItemSize { MenuItemId = item.MenuItemId, SizeId = sizeId, ExtraPrice = cs.ExtraPrice });
+                    }
+                }
+            }
 
             await _db.SaveChangesAsync();
             return (await GetByIdAsync(item.MenuItemId))!;

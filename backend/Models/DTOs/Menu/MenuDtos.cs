@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace WebCafe.Backend.Models.DTOs.Menu
 {
@@ -84,7 +84,15 @@ namespace WebCafe.Backend.Models.DTOs.Menu
         public int SortOrder { get; set; } = 0;
         
         public List<int>? SizeIds { get; set; }
+        public List<MenuItemSizeInputDto>? CustomSizes { get; set; }
         public List<int>? ToppingIds { get; set; }
+    }
+
+    public class MenuItemSizeInputDto
+    {
+        public int? SizeId { get; set; }
+        public string? SizeName { get; set; }
+        public decimal ExtraPrice { get; set; } = 0;
     }
 
     public class StoreMenuResponse
