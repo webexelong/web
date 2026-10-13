@@ -74,14 +74,25 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
             <span className="text-sm font-medium text-gray-800">Lịch sử đơn hàng</span>
           </button>
 
-          {/* Admin/Staff Menu Access */}
-          {(user?.role === 'SystemAdmin' || user?.role === 'Owner' || user?.role === 'TenantOwner') && (
+          {/* SystemAdmin Link */}
+          {user?.role === 'SystemAdmin' && (
+            <button
+              onClick={() => handleNavigate('/system-admin')}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-purple-900 rounded-xl transition-colors text-left"
+            >
+              <span className="material-symbols-outlined text-purple-600">shield_person</span>
+              <span className="text-sm font-semibold">Cổng Super Admin</span>
+            </button>
+          )}
+
+          {/* Store Owner Link */}
+          {(user?.role === 'Owner' || user?.role === 'TenantOwner') && (
             <button
               onClick={() => handleNavigate('/admin')}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-50 text-amber-900 rounded-xl transition-colors text-left"
             >
-              <span className="material-symbols-outlined text-gray-600">admin_panel_settings</span>
-              <span className="text-sm font-medium text-gray-800">Quản trị hệ thống</span>
+              <span className="material-symbols-outlined text-amber-600">store</span>
+              <span className="text-sm font-semibold">Quản trị quán Cafe (Admin)</span>
             </button>
           )}
 

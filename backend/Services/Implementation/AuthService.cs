@@ -156,14 +156,25 @@ namespace WebCafe.Backend.Services.Implementation
         public async Task<LoginResponse> LoginCustomerAsync(LoginRequest request)
         {
             var phone = request.Username.Trim().Replace(" ", "");
-            if (!request.StoreId.HasValue || request.StoreId.Value <= 0)
-                throw new AppException("Vui lòng chọn cửa hàng để đăng nhập.");
+            Store? store = null;
+            if (request.StoreId.HasValue && request.StoreId.Value > 0)
+            {
+                store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.StoreId == request.StoreId && s.IsActive);
+            }
 
-            var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.StoreId == request.StoreId && s.IsActive);
-            if (store == null) throw new AppException("Cửa hàng không tồn tại hoặc đã ngừng hoạt động.");
-            var customer = await _db.Customers
-                .Include(c => c.Tenant)
-                .FirstOrDefaultAsync(c => c.Phone == phone && c.TenantId == store.TenantId);
+            Customer? customer = null;
+            if (store != null)
+            {
+                customer = await _db.Customers
+                    .Include(c => c.Tenant)
+                    .FirstOrDefaultAsync(c => c.Phone == phone && c.TenantId == store.TenantId);
+            }
+            else
+            {
+                customer = await _db.Customers
+                    .Include(c => c.Tenant)
+                    .FirstOrDefaultAsync(c => c.Phone == phone);
+            }
 
             var validPassword = false;
             if (!string.IsNullOrWhiteSpace(customer?.PasswordHash))
@@ -213,9 +224,20 @@ namespace WebCafe.Backend.Services.Implementation
         {
             var phone = request.Phone.Trim().Replace(" ", "");
 
-            var store = await _db.Stores.Include(s => s.Tenant)
-                .FirstOrDefaultAsync(s => s.StoreId == request.StoreId && s.IsActive && s.Tenant != null && s.Tenant.IsActive);
-            if (store == null) throw new AppException("Cửa hàng đăng ký không tồn tại hoặc đã ngừng hoạt động.");
+            Store? store = null;
+            if (request.StoreId.HasValue && request.StoreId.Value > 0)
+            {
+                store = await _db.Stores.Include(s => s.Tenant)
+                    .FirstOrDefaultAsync(s => s.StoreId == request.StoreId.Value && s.IsActive && s.Tenant != null && s.Tenant.IsActive);
+            }
+
+            if (store == null)
+            {
+                store = await _db.Stores.Include(s => s.Tenant)
+                    .FirstOrDefaultAsync(s => s.IsActive && s.Tenant != null && s.Tenant.IsActive);
+            }
+
+            if (store == null) throw new AppException("Hệ thống hiện chưa có cửa hàng nào hoạt động.");
 
             var existingByPhone = await _db.Customers
                 .FirstOrDefaultAsync(c => c.Phone == phone && c.TenantId == store.TenantId);
