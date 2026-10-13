@@ -10,11 +10,11 @@ import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
 
 export default function Cart() {
-  const { 
-    cart, 
-    updateQuantity, 
-    removeFromCart, 
-    createOrder, 
+  const {
+    cart,
+    updateQuantity,
+    removeFromCart,
+    createOrder,
     currentStoreId,
     currentTable,
     currentTableId,
@@ -140,7 +140,7 @@ export default function Cart() {
       if (guestSession) {
         updateGuestInfo(customerName, customerPhone);
       }
-      
+
       const tableToUse = guestSession?.tableId || currentTableId || currentTable;
       if (!tableToUse) {
         setPointsError('Chưa xác định được số bàn của bạn. Vui lòng quét mã QR tại bàn trước khi đặt món.');
@@ -204,7 +204,7 @@ export default function Cart() {
             {/* Cart Items List */}
             <section className="space-y-stack-md">
               <h2 className="font-headline-md text-headline-md text-on-surface-variant border-b border-outline-variant/20 pb-2 font-bold">Đơn Hàng Của Bạn</h2>
-              
+
               {cart.length === 0 ? (
                 <div className="text-center py-16 flex flex-col items-center gap-4 bg-white rounded-2xl border border-outline-variant/20 p-8">
                   <span className="material-symbols-outlined text-[64px] text-outline-variant" style={{ fontVariationSettings: "'FILL' 1" }}>shopping_cart</span>
@@ -233,15 +233,15 @@ export default function Cart() {
                               {item.note && <span className="italic text-primary">"{item.note}"</span>}
                             </div>
                           </div>
-                          <button 
-                            onClick={() => removeFromCart(item.cartItemId || item.id)} 
+                          <button
+                            onClick={() => removeFromCart(item.cartItemId || item.id)}
                             className="text-error hover:bg-error/10 p-1.5 rounded-full transition-colors"
                             title="Xóa món"
                           >
                             <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
                         </div>
-                        
+
                         <div className="flex justify-between items-center mt-4">
                           <div>
                             <span className="font-headline-md text-label-md text-primary font-bold">
@@ -253,16 +253,16 @@ export default function Cart() {
                               </span>
                             )}
                           </div>
-                          
+
                           <div className="flex items-center gap-2 bg-surface-variant/40 rounded-full px-2 py-1">
-                            <button 
+                            <button
                               onClick={() => updateQuantity(item.cartItemId || item.id, item.quantity - 1)}
                               className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-primary shadow-xs hover:bg-primary hover:text-white transition-colors"
                             >
                               <span className="material-symbols-outlined text-xs">remove</span>
                             </button>
                             <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
-                            <button 
+                            <button
                               onClick={() => updateQuantity(item.cartItemId || item.id, item.quantity + 1)}
                               className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-primary shadow-xs hover:bg-primary hover:text-white transition-colors"
                             >
@@ -292,9 +292,9 @@ export default function Cart() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-on-surface-variant block mb-1">Tên khách hàng (Tùy chọn)</label>
-                    <input 
-                      type="text" 
-                      placeholder="VD: Anh Minh" 
+                    <input
+                      type="text"
+                      placeholder="VD: Anh Minh"
                       className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -302,9 +302,9 @@ export default function Cart() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-on-surface-variant block mb-1">Số điện thoại tích điểm (Tùy chọn)</label>
-                    <input 
-                      type="tel" 
-                      placeholder="VD: 0901234567" 
+                    <input
+                      type="tel"
+                      placeholder="VD: 0901234567"
                       className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
@@ -313,9 +313,9 @@ export default function Cart() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant block mb-1">Ghi chú cho quầy thu ngân / Bếp</label>
-                  <input 
-                    type="text" 
-                    placeholder="VD: Mang ra bàn sớm giúp mình nhé" 
+                  <input
+                    type="text"
+                    placeholder="VD: Mang ra bàn sớm giúp mình nhé"
                     className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
@@ -337,14 +337,14 @@ export default function Cart() {
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant block mb-1">Mã Giảm Giá</label>
                   <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Nhập mã ưu đãi (nếu có)" 
+                    <input
+                      type="text"
+                      placeholder="Nhập mã ưu đãi"
                       className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs uppercase font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={voucherInput}
                       onChange={(e) => setVoucherInput(e.target.value)}
                     />
-                    <button 
+                    <button
                       type="button"
                       onClick={handleApplyVoucher}
                       className="px-4 py-2 bg-secondary text-white rounded-xl text-xs font-bold hover:bg-secondary/90 transition-colors"
@@ -378,9 +378,9 @@ export default function Cart() {
                   {isAuthenticated ? (
                     <div className="space-y-2">
                       <div className="flex gap-2">
-                        <input 
-                          type="number" 
-                          placeholder={maxUsablePoints > 0 ? `Tối đa ${maxUsablePoints} điểm` : '0 điểm'} 
+                        <input
+                          type="number"
+                          placeholder={maxUsablePoints > 0 ? `Tối đa ${maxUsablePoints} điểm` : '0 điểm'}
                           className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                           value={pointsInput}
                           onChange={(e) => handleApplyPoints(parseInt(e.target.value) || 0)}
@@ -389,7 +389,7 @@ export default function Cart() {
                           disabled={maxUsablePoints === 0}
                         />
                         {maxUsablePoints > 0 && pointsToUse < maxUsablePoints && (
-                          <button 
+                          <button
                             type="button"
                             onClick={handleUseMaxPoints}
                             className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors whitespace-nowrap shadow-sm"
@@ -398,7 +398,7 @@ export default function Cart() {
                           </button>
                         )}
                         {pointsToUse > 0 && (
-                          <button 
+                          <button
                             type="button"
                             onClick={handleClearPoints}
                             className="px-2.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors"
@@ -472,7 +472,7 @@ export default function Cart() {
                 </div>
 
                 {/* Submit Button */}
-                <button 
+                <button
                   onClick={handleCheckout}
                   disabled={isSubmitting}
                   className="w-full py-4 bg-primary text-white rounded-full font-headline-md text-label-md font-bold hover:bg-primary-container transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
