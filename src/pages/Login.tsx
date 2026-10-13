@@ -205,17 +205,11 @@ export default function LoginPage() {
 
 
         {/* Separator / Footer Navigation */}
-        <div className="mt-6 pt-4 border-t border-gray-100 space-y-2 text-center text-xs text-gray-600">
+        <div className="mt-6 pt-4 border-t border-gray-100 text-center text-xs text-gray-600">
           <p>
             Bạn là chủ doanh nghiệp F&B?{' '}
             <a href="/signup" className="text-orange-600 hover:text-orange-700 font-bold underline">
               Đăng ký mở quán mới
-            </a>
-          </p>
-          <p>
-            Bạn là khách hàng gọi món?{' '}
-            <a href="/" className="text-amber-700 hover:text-amber-800 font-semibold underline">
-              Về trang Thực đơn gọi món
             </a>
           </p>
         </div>
