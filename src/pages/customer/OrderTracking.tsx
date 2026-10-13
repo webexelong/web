@@ -269,16 +269,38 @@ export default function OrderTracking() {
                   ))}
                 </div>
                 
-                <div className="border-t border-outline-variant/20 pt-stack-md space-y-2 text-sm">
-                  <div className="flex justify-between text-on-surface-variant">
-                    <span>Số lượng</span>
-                    <span>{currentOrder.items?.reduce((acc, i) => acc + i.quantity, 0) || 1} món</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-base text-on-surface pt-2 border-t border-outline-variant/10">
-                    <span>Tổng tiền</span>
-                    <span className="text-primary text-lg font-bold">{currentOrder.total.toLocaleString('vi-VN')}đ</span>
-                  </div>
-                </div>
+                {(() => {
+                  const subTotal = currentOrder.rawDto?.subTotal 
+                    || currentOrder.items?.reduce((sum, i) => sum + (i.price * i.quantity), 0) 
+                    || currentOrder.total;
+                  const discount = currentOrder.rawDto?.discountAmount || Math.max(0, subTotal - currentOrder.total);
+                  const pointsUsed = currentOrder.rawDto?.pointsUsed || 0;
+
+                  return (
+                    <div className="border-t border-outline-variant/20 pt-stack-md space-y-2 text-sm">
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>Số lượng</span>
+                        <span>{currentOrder.items?.reduce((acc, i) => acc + i.quantity, 0) || 1} món</span>
+                      </div>
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>Tạm tính (Tiền món)</span>
+                        <span>{subTotal.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                      {discount > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-medium">
+                          <span>
+                            {pointsUsed > 0 ? `Ưu đãi & Điểm thưởng (${pointsUsed} điểm)` : 'Giảm giá ưu đãi'}
+                          </span>
+                          <span>-{discount.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base text-on-surface pt-2 border-t border-outline-variant/10">
+                        <span>Tổng thanh toán</span>
+                        <span className="text-primary text-lg font-bold">{currentOrder.total.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="mt-6">
                   <Link to="/" className="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">

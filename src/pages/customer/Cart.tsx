@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { customerApi } from '../../api/apis';
+import { apiClient } from '../../api/apiClient';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
 
@@ -80,12 +81,25 @@ export default function Cart() {
   const pointsDiscountAmount = pointsToUse * pointsToMoney;
   const total = Math.max(0, subtotal - discountAmount - pointsDiscountAmount + serviceFee);
 
-  const handleApplyVoucher = () => {
+  const handleApplyVoucher = async () => {
     if (!voucherInput.trim()) return;
-    if (voucherInput.toUpperCase() === 'WELCOME50' || voucherInput.toUpperCase() === 'GIAM10') {
-      setVoucher(voucherInput.toUpperCase(), 10);
-      setVoucherError('');
-    } else {
+    try {
+      const sId = currentStoreId || guestSession?.storeId || 1;
+      const res = await apiClient.post('/vouchers/validate', {
+        code: voucherInput.trim().toUpperCase(),
+        storeId: sId,
+        orderAmount: subtotal,
+        customerPhone: customerPhone || undefined
+      });
+      if (res.data?.success && res.data?.data?.isValid) {
+        const v = res.data.data;
+        const discountVal = v.discountType === 'percent' ? (v.discountValue || 0) : Math.round((v.discountAmount / subtotal) * 100);
+        setVoucher(v.code, discountVal);
+        setVoucherError('');
+      } else {
+        setVoucherError(res.data?.data?.message || res.data?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch {
       setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
     }
   };
@@ -325,7 +339,7 @@ export default function Cart() {
                   <div className="flex gap-2">
                     <input 
                       type="text" 
-                      placeholder="Nhập WELCOME50" 
+                      placeholder="Nhập mã ưu đãi (nếu có)" 
                       className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs uppercase font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={voucherInput}
                       onChange={(e) => setVoucherInput(e.target.value)}

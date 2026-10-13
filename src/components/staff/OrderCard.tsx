@@ -117,6 +117,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
       note: i.note,
     })),
     subTotal: order.subTotal,
+    discountAmount: Math.max(0, order.subTotal - order.totalAmount),
     totalAmount: order.totalAmount,
     paymentMethod: order.status === 'paid' ? 'cash' : 'transfer',
     paymentStatus: order.status === 'paid' || order.status === 'completed' ? 'paid' : 'pending',
