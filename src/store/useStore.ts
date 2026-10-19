@@ -85,6 +85,7 @@ const loadInitialGuestSession = (): GuestSession | null => {
 };
 
 const initialGuestSession = loadInitialGuestSession();
+const menuRequests = new Map<number, Promise<void>>();
 
 interface StoreState {
   // Data
@@ -240,42 +241,56 @@ export const useStore = create<StoreState>((set, get) => ({
 
   fetchMenu: async (storeId) => {
     const sId = storeId || get().currentStoreId;
+    if (!Number.isInteger(sId) || sId <= 0) return;
+
+    const pendingRequest = menuRequests.get(sId);
+    if (pendingRequest) return pendingRequest;
+
+    const request = (async () => {
+      try {
+        set({ isLoading: true });
+        const data = await menuApi.getStoreMenu(sId);
+
+        // Filter out 'Quà Lưu Niệm'
+        const mappedCategories: Category[] = data.categories
+          .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'))
+          .map(c => ({
+            id: c.name,
+            name: c.name,
+            icon: c.icon || 'coffee',
+          }));
+
+        const mappedItems: MenuItem[] = data.menuItems
+          .filter(m => !m.categoryName?.toLowerCase().includes('quà') && !m.categoryName?.toLowerCase().includes('lưu niệm'))
+          .map(m => ({
+            id: m.menuItemId.toString(),
+            name: m.name,
+            description: m.description || '',
+            price: m.basePrice,
+            image: m.imageUrl || 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&q=80',
+            categoryId: m.categoryName || 'Cà Phê Pha Máy',
+            categoryName: m.categoryName,
+            rating: m.rating || 4.8,
+            rawDto: m,
+          }));
+
+        set({
+          storeInfo: data,
+          categories: mappedCategories.length > 0 ? mappedCategories : mockCategories,
+          menuItems: mappedItems,
+          isLoading: false
+        });
+      } catch (err) {
+        console.warn('API menu fetch failed, using fallback UI state:', err);
+        set({ isLoading: false });
+      }
+    })();
+
+    menuRequests.set(sId, request);
     try {
-      set({ isLoading: true });
-      const data = await menuApi.getStoreMenu(sId);
-      
-      // Filter out 'Quà Lưu Niệm'
-      const mappedCategories: Category[] = data.categories
-        .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'))
-        .map(c => ({
-          id: c.name,
-          name: c.name,
-          icon: c.icon || 'coffee',
-        }));
-
-      const mappedItems: MenuItem[] = data.menuItems
-        .filter(m => !m.categoryName?.toLowerCase().includes('quà') && !m.categoryName?.toLowerCase().includes('lưu niệm'))
-        .map(m => ({
-          id: m.menuItemId.toString(),
-          name: m.name,
-          description: m.description || '',
-          price: m.basePrice,
-          image: m.imageUrl || 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&q=80',
-          categoryId: m.categoryName || 'Cà Phê Pha Máy',
-          categoryName: m.categoryName,
-          rating: m.rating || 4.8,
-          rawDto: m,
-        }));
-
-      set({
-        storeInfo: data,
-        categories: mappedCategories.length > 0 ? mappedCategories : mockCategories,
-        menuItems: mappedItems,
-        isLoading: false
-      });
-    } catch (err) {
-      console.warn('API menu fetch failed, using fallback UI state:', err);
-      set({ isLoading: false });
+      await request;
+    } finally {
+      menuRequests.delete(sId);
     }
   },
 

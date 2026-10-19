@@ -1,0 +1,16 @@
+{
+  "name": "AI-SMARTSERVE",
+  "description": "Smart cafe ordering and AI drink sommelier platform",
+  "version": "1.0.0",
+  "url": "https://www.ai-smartserve.io.vn",
+  "endpoints": {
+    "menu": "https://www.ai-smartserve.io.vn/menu",
+    "cart": "https://www.ai-smartserve.io.vn/cart"
+  },
+  "capabilities": [
+    "browse-menu",
+    "view-product-details",
+    "order-placement",
+    "ai-recommendations"
+  ]
+}

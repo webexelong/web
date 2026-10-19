@@ -1,48 +1,44 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import CustomerLayout from './layouts/CustomerLayout';
-import StaffLayout from './layouts/StaffLayout';
-import AdminLayout from './layouts/AdminLayout';
-import SystemAdminLayout from './layouts/SystemAdminLayout';
-
-// Auth Pages
-import Login from './pages/Login';
-import DemoLanding from './pages/DemoLanding';
-import DemoBackoffice from './pages/DemoBackoffice';
-import OwnerSignup from './pages/OwnerSignup';
-import VerifyEmail from './pages/VerifyEmail';
-
-// Customer Pages
-import ProductDetail from './pages/customer/ProductDetail';
 import Menu from './pages/customer/Menu';
-import AIRecommendations from './pages/customer/AIRecommendations';
-import Cart from './pages/customer/Cart';
-import OrderSuccess from './pages/customer/OrderSuccess';
-import OrderTracking from './pages/customer/OrderTracking';
-import QRLanding from './pages/customer/QRLanding';
-import Profile from './pages/customer/Profile';
-import OrderHistory from './pages/customer/OrderHistory';
 
-// Staff Pages
-import StaffOrderDashboard from './pages/staff/StaffOrderDashboard';
-import StaffDashboard from './pages/staff/StaffDashboard';
-import NewOrder from './pages/staff/NewOrder';
-import StaffLogin from './pages/staff/StaffLogin';
+const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout'));
 
-// Admin Pages (Store Owner)
-import AdminDashboard from './pages/admin/AdminDashboard';
-import Analytics from './pages/admin/Analytics';
-import MenuManagement from './pages/admin/MenuManagement';
-import InventoryManagement from './pages/admin/InventoryManagement';
-import TableManagement from './pages/admin/TableManagement';
-import StaffManagement from './pages/admin/StaffManagement';
-import PaymentSettings from './pages/admin/PaymentSettings';
-import SubscriptionManagement from './pages/admin/SubscriptionManagement';
+const Login = lazy(() => import('./pages/Login'));
+const DemoLanding = lazy(() => import('./pages/DemoLanding'));
+const DemoBackoffice = lazy(() => import('./pages/DemoBackoffice'));
+const OwnerSignup = lazy(() => import('./pages/OwnerSignup'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ProductDetail = lazy(() => import('./pages/customer/ProductDetail'));
+const AIRecommendations = lazy(() => import('./pages/customer/AIRecommendations'));
+const Cart = lazy(() => import('./pages/customer/Cart'));
+const OrderSuccess = lazy(() => import('./pages/customer/OrderSuccess'));
+const OrderTracking = lazy(() => import('./pages/customer/OrderTracking'));
+const QRLanding = lazy(() => import('./pages/customer/QRLanding'));
+const Profile = lazy(() => import('./pages/customer/Profile'));
+const OrderHistory = lazy(() => import('./pages/customer/OrderHistory'));
 
-// Super Admin Pages (SaaS Platform Master)
-import SystemAdminDashboard from './pages/system-admin/SystemAdminDashboard';
-import TenantManagement from './pages/system-admin/TenantManagement';
-import SaaSPlansSettings from './pages/system-admin/SaaSPlansSettings';
+const StaffOrderDashboard = lazy(() => import('./pages/staff/StaffOrderDashboard'));
+const StaffDashboard = lazy(() => import('./pages/staff/StaffDashboard'));
+const NewOrder = lazy(() => import('./pages/staff/NewOrder'));
+const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
+
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const MenuManagement = lazy(() => import('./pages/admin/MenuManagement'));
+const InventoryManagement = lazy(() => import('./pages/admin/InventoryManagement'));
+const TableManagement = lazy(() => import('./pages/admin/TableManagement'));
+const StaffManagement = lazy(() => import('./pages/admin/StaffManagement'));
+const PaymentSettings = lazy(() => import('./pages/admin/PaymentSettings'));
+const SubscriptionManagement = lazy(() => import('./pages/admin/SubscriptionManagement'));
+
+const SystemAdminDashboard = lazy(() => import('./pages/system-admin/SystemAdminDashboard'));
+const TenantManagement = lazy(() => import('./pages/system-admin/TenantManagement'));
+const SaaSPlansSettings = lazy(() => import('./pages/system-admin/SaaSPlansSettings'));
 import AnalyticsTracker from './components/AnalyticsTracker';
 import SubscriptionFeatureGate from './components/SubscriptionFeatureGate';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -52,7 +48,8 @@ function App() {
   return (
     <NotificationProvider><Router>
       <AnalyticsTracker />
-      <Routes>
+      <Suspense fallback={<div className="min-h-screen bg-background p-6 text-on-surface" role="status">Đang tải trang...</div>}>
+        <Routes>
         {/* Auth Route */}
         <Route path="/login" element={<Login />} />
         <Route path="/system-admin/login" element={<Login />} />
@@ -127,7 +124,8 @@ function App() {
           <Route path="tenants" element={<TenantManagement />} />
           <Route path="plans" element={<SaaSPlansSettings />} />
         </Route>
-      </Routes>
+        </Routes>
+      </Suspense>
     </Router></NotificationProvider>
   );
 }

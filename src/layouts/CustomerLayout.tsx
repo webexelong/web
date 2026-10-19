@@ -1,10 +1,11 @@
+import { lazy, Suspense, useState } from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { Coffee, ShoppingCart, User, Sparkles } from 'lucide-react';
+import { Coffee, ShoppingCart, Sparkles } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
-import { useState } from 'react';
-import AuthModal from '../components/AuthModal';
 import UserMenu from '../components/UserMenu';
+
+const AuthModal = lazy(() => import('../components/AuthModal'));
 
 export default function CustomerLayout() {
   const cart = useStore(state => state.cart);
@@ -133,7 +134,11 @@ export default function CustomerLayout() {
       </footer>
 
       {/* Auth Modal */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      {isAuthModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModal isOpen onClose={() => setIsAuthModalOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }
