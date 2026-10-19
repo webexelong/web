@@ -1,14 +1,10 @@
-# AI-SMARTSERVE - Smart Cafe Menu & Ordering Platform
+# AI-SMARTSERVE
 
-> AI-SMARTSERVE provides smart cafe digital menu ordering with AI Sommelier assistance and contactless QR payment.
+> Nền tảng gọi món thông minh và trợ lý ẩm thực AI Sommelier dành cho quán cà phê, nhà hàng.
 
-## Project Information
-- Name: AI-SMARTSERVE (WebCafe)
-- URL: https://www.ai-smartserve.io.vn
-- Category: Smart F&B Ordering & E-commerce System
+AI-SMARTSERVE cung cấp giải pháp gọi món kỹ thuật số thông minh với thực đơn trực tuyến, hỗ trợ tư vấn từ trợ lý AI Sommelier và thanh toán không tiếp xúc qua mã VietQR.
 
-## Key Features
-- Handcrafted Menu with Coffee, Milk Tea, Fruit Tea, and Bakery.
-- AI Sommelier drink recommendations and personalized pairing.
-- Seamless VietQR PayOS payment integration.
-- Real-time order status tracking with SignalR.
+## Docs
+- [Thực đơn trực tuyến](https://www.ai-smartserve.io.vn/table/1/1): Danh mục thức uống và bánh ngọt thủ công cập nhật theo thời gian thực
+- [Trợ lý AI Sommelier](https://www.ai-smartserve.io.vn/ai-suggest): Tư vấn gợi ý đồ uống cá nhân hóa theo tâm trạng và hương vị
+- [Giỏ hàng và Đặt món](https://www.ai-smartserve.io.vn/cart): Quản lý món đã chọn và tiến hành thanh toán VietQR
