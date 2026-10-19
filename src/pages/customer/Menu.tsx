@@ -21,6 +21,10 @@ const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
       url.searchParams.set('auto', 'format');
       return url.toString();
     }
+    if (url.hostname.includes('googleusercontent.com')) {
+      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      return `${cleanUrl}=w${width}-rw`;
+    }
     return imageUrl;
   } catch {
     return imageUrl;
@@ -30,14 +34,20 @@ const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
 const getResponsiveImageSources = (imageUrl: string) => {
   try {
     const url = new URL(imageUrl);
-    if (url.hostname !== 'images.unsplash.com') return undefined;
-    return [160, 240, 360, 480, 640].map(width => {
-      const sizedUrl = new URL(url);
-      sizedUrl.searchParams.set('w', String(width));
-      sizedUrl.searchParams.set('q', '70');
-      sizedUrl.searchParams.set('auto', 'format');
-      return `${sizedUrl.toString()} ${width}w`;
-    }).join(', ');
+    if (url.hostname === 'images.unsplash.com') {
+      return [160, 240, 360, 480, 640].map(width => {
+        const sizedUrl = new URL(url);
+        sizedUrl.searchParams.set('w', String(width));
+        sizedUrl.searchParams.set('q', '70');
+        sizedUrl.searchParams.set('auto', 'format');
+        return `${sizedUrl.toString()} ${width}w`;
+      }).join(', ');
+    }
+    if (url.hostname.includes('googleusercontent.com')) {
+      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      return [160, 240, 320, 480, 640].map(width => `${cleanUrl}=w${width}-rw ${width}w`).join(', ');
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -86,7 +96,7 @@ export default function Menu() {
       }
     }
 
-    const targetStoreId = sessionStoreId || storeIdParam;
+    const targetStoreId = sessionStoreId || storeIdParam || 1;
     if (targetStoreId) {
       setStoreId(targetStoreId);
       const currentMenu = useStore.getState();
@@ -324,7 +334,7 @@ export default function Menu() {
                         height={500}
                         loading={index === 0 ? 'eager' : 'lazy'}
                         fetchPriority={index === 0 ? 'high' : 'auto'}
-                        decoding="async"
+                        decoding={index === 0 ? 'sync' : 'async'}
                         className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute bottom-1.5 right-1.5 sm:bottom-3 sm:right-3 px-1.5 sm:px-3 py-0.5 sm:py-1 bg-primary text-on-primary rounded-md sm:rounded-lg font-bold text-[10px] sm:text-label-md shadow-md">
