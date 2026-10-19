@@ -164,8 +164,131 @@ const mockCategories: Category[] = [
   { id: 'Bánh Ngọt', name: 'Bánh Ngọt', icon: 'bakery_dining' }
 ];
 
+const defaultMenuItems: MenuItem[] = [
+  {
+    id: '1',
+    name: 'Caramel Cloud Macchiato',
+    description: 'Lớp bọt sữa lạnh mềm mịn phủ trên lớp espresso cùng hương vani và xốt caramel.',
+    price: 57500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAb7dmU9p5ws6yiGWFQpEh-Vjo0PCA4sYcpCjINzCM3Te0tnsc9ffhxbMqhXwS7_UeEMCLtBftnxvaW-r--YOlDyGw_cqWmfbTrTi9x04jt5jvNm1zWxdQmgdxk0COUycCP_X3lzDPhldmC8jF2emQxsl_LjSU_wRlGYcAvL9KlYEpvc75GxsLaJyeJWoZdR3CyjB-3uLAfxuL5A33XycLc9p5gssh1z_k2p2uFU0nfU_ylV5jeljNf',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.8,
+    rawDto: {
+      menuItemId: 1,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Caramel Cloud Macchiato',
+      basePrice: 57500,
+      description: 'Lớp bọt sữa lạnh mềm mịn phủ trên lớp espresso cùng hương vani và xốt caramel.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAb7dmU9p5ws6yiGWFQpEh-Vjo0PCA4sYcpCjINzCM3Te0tnsc9ffhxbMqhXwS7_UeEMCLtBftnxvaW-r--YOlDyGw_cqWmfbTrTi9x04jt5jvNm1zWxdQmgdxk0COUycCP_X3lzDPhldmC8jF2emQxsl_LjSU_wRlGYcAvL9KlYEpvc75GxsLaJyeJWoZdR3CyjB-3uLAfxuL5A33XycLc9p5gssh1z_k2p2uFU0nfU_ylV5jeljNf',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 1,
+      rating: 4.8,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '2',
+    name: 'Nitro Velvet Brew',
+    description: 'Ủ lạnh 20 tiếng và kết hợp với khí nitơ để tạo nên kết cấu siêu mịn, béo ngậy.',
+    price: 49500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBm3z4t9Q_erviq8V0f_xE0Kk5WKh-Gyct1TiA-sfVsueTSn9wSDN91lNfpzBCEoZlsVIuL3-LtwaoH9xfm45EfTaOmgDo4FaKA5jK8oGYyU6HEHjs7K0nh6zdw6ro5mjYFK6MgUBSb0y_0wBgcGekJdVZoFeYmxiJSH5tr9HHd0DXye5CvJ42Q2FvTvGyLN2dv5uxi4xC0LKNZUzwpe6JnCPG2J1N0h7RFNvSaw5ksNL1inKMpmiWc',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.9,
+    rawDto: {
+      menuItemId: 2,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Nitro Velvet Brew',
+      basePrice: 49500,
+      description: 'Ủ lạnh 20 tiếng và kết hợp với khí nitơ để tạo nên kết cấu siêu mịn, béo ngậy.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBm3z4t9Q_erviq8V0f_xE0Kk5WKh-Gyct1TiA-sfVsueTSn9wSDN91lNfpzBCEoZlsVIuL3-LtwaoH9xfm45EfTaOmgDo4FaKA5jK8oGYyU6HEHjs7K0nh6zdw6ro5mjYFK6MgUBSb0y_0wBgcGekJdVZoFeYmxiJSH5tr9HHd0DXye5CvJ42Q2FvTvGyLN2dv5uxi4xC0LKNZUzwpe6JnCPG2J1N0h7RFNvSaw5ksNL1inKMpmiWc',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 2,
+      rating: 4.9,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '3',
+    name: 'Classic Flat White',
+    description: 'Hai shot espresso được chiết xuất hoàn hảo với lớp bọt sữa mỏng và siêu mịn.',
+    price: 45000,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBnqJ2oXSFRtA0ryNB9aaYC2CyYGG_EVliGTodIT1ko3_4mwED6o3WhSyDUz4gFfHFuXMNcoZ8Ut3AdaYz2rooQIo8a5uU97WxsHKJPIgsWl1yZGv95X4meMJFTe0sY7VwXaEq69fFdtp0MBmW6Kuc42C4s1ELHt2s6-0v00VxRQ_-FfuBDTGLzpnwsa5BYYv00jS6frOt4pl4orUPlb8MunpQEEBTHVkKeL6_zDRRzsXfu8AleqBlc',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.6,
+    rawDto: {
+      menuItemId: 3,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Classic Flat White',
+      basePrice: 45000,
+      description: 'Hai shot espresso được chiết xuất hoàn hảo với lớp bọt sữa mỏng và siêu mịn.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBnqJ2oXSFRtA0ryNB9aaYC2CyYGG_EVliGTodIT1ko3_4mwED6o3WhSyDUz4gFfHFuXMNcoZ8Ut3AdaYz2rooQIo8a5uU97WxsHKJPIgsWl1yZGv95X4meMJFTe0sY7VwXaEq69fFdtp0MBmW6Kuc42C4s1ELHt2s6-0v00VxRQ_-FfuBDTGLzpnwsa5BYYv00jS6frOt4pl4orUPlb8MunpQEEBTHVkKeL6_zDRRzsXfu8AleqBlc',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: false,
+      isAvailable: true,
+      sortOrder: 3,
+      rating: 4.6,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '4',
+    name: 'Winter Peppermint Mocha',
+    description: 'Espresso đậm đà kết hợp với sô-cô-la đắng, si-rô bạc hà và kem tươi.',
+    price: 59500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9-1leTygB-ItPyqGSVsiUhHGiA0NO8LiAGMH2RaXxZjF_IkvbelPHagclH3hVM2HQ2Kn77b6uoFQ1fWeBvLRhSab5mEXwEQc1Y119gPPQcjbejtNiF1ullU-5lJlzdHbqU6ZZtuSuba_yHqQ9aaWdzG6OWcldnuEy6Z3vbf3T0sL62dOocyli4ykfmAWeuF-xo4M_bxsFiR8J1wod-116FEzUjJC6ETgo01I3cf0ZNLQC3TY7tP1Z',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.9,
+    rawDto: {
+      menuItemId: 4,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Winter Peppermint Mocha',
+      basePrice: 59500,
+      description: 'Espresso đậm đà kết hợp với sô-cô-la đắng, si-rô bạc hà và kem tươi.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9-1leTygB-ItPyqGSVsiUhHGiA0NO8LiAGMH2RaXxZjF_IkvbelPHagclH3hVM2HQ2Kn77b6uoFQ1fWeBvLRhSab5mEXwEQc1Y119gPPQcjbejtNiF1ullU-5lJlzdHbqU6ZZtuSuba_yHqQ9aaWdzG6OWcldnuEy6Z3vbf3T0sL62dOocyli4ykfmAWeuF-xo4M_bxsFiR8J1wod-116FEzUjJC6ETgo01I3cf0ZNLQC3TY7tP1Z',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 4,
+      rating: 4.9,
+      sizes: [],
+      toppings: []
+    }
+  }
+];
+
+const loadInitialMenuItems = (): MenuItem[] => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return defaultMenuItems;
+    const cached = localStorage.getItem('webcafe_cached_menu_items');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse cached menu items', e);
+  }
+  return defaultMenuItems;
+};
+
 export const useStore = create<StoreState>((set, get) => ({
-  menuItems: [],
+  menuItems: loadInitialMenuItems(),
   categories: mockCategories,
   orders: [],
   activeOrder: null,
@@ -280,6 +403,14 @@ export const useStore = create<StoreState>((set, get) => ({
           menuItems: mappedItems,
           isLoading: false
         });
+
+        try {
+          if (mappedItems.length > 0) {
+            localStorage.setItem('webcafe_cached_menu_items', JSON.stringify(mappedItems));
+          }
+        } catch (e) {
+          console.warn('Failed to cache menu items to localStorage', e);
+        }
       } catch (err) {
         console.warn('API menu fetch failed, using fallback UI state:', err);
         set({ isLoading: false });
