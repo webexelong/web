@@ -82,6 +82,7 @@ namespace WebCafe.Backend.Services.Implementation
         public async Task<StoreMenuResponse> GetMenuByStoreAsync(int storeId)
         {
             var store = await _db.Stores
+                .AsNoTracking()
                 .Include(s => s.Tenant)
                 .FirstOrDefaultAsync(s => s.StoreId == storeId && s.IsActive);
 
@@ -93,6 +94,7 @@ namespace WebCafe.Backend.Services.Implementation
             var tenantId = store.TenantId;
 
             var categories = await _db.Categories
+                .AsNoTracking()
                 .Where(c => c.TenantId == tenantId && c.IsActive && !c.IsDeleted)
                 .OrderBy(c => c.SortOrder)
                 .Select(c => new CategoryDto
@@ -107,6 +109,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .ToListAsync();
 
             var items = await _db.MenuItems
+                .AsNoTracking()
                 .Where(m => m.TenantId == tenantId && m.IsAvailable && !m.IsDeleted)
                 .Include(m => m.Category)
                 .Include(m => m.MenuItemSizes)

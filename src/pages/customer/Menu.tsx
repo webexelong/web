@@ -3,8 +3,7 @@ import { useStore } from '../../store/useStore';
 import { useEffect, useState } from 'react';
 import MobileBottomNav from '../../components/MobileBottomNav';
 import Pagination from '../../components/Pagination';
-import AiSommelierChat from '../../components/AiSommelierChat';
-import AuthModal from '../../components/AuthModal';
+import DeferredAiSommelierChat from '../../components/DeferredAiSommelierChat';
 
 const DEFAULT_CATEGORIES = [
   { id: 'Cà Phê Pha Máy', name: 'Cà Phê Pha Máy', icon: 'coffee' },
@@ -12,6 +11,22 @@ const DEFAULT_CATEGORIES = [
   { id: 'Trà & Trái Cây', name: 'Trà & Trái Cây', icon: 'energy_savings_leaf' },
   { id: 'Bánh Ngọt', name: 'Bánh Ngọt', icon: 'bakery_dining' }
 ];
+
+const getResponsiveImageSources = (imageUrl: string) => {
+  try {
+    const url = new URL(imageUrl);
+    if (url.hostname !== 'images.unsplash.com') return undefined;
+    return [160, 320, 640, 960].map(width => {
+      const sizedUrl = new URL(url);
+      sizedUrl.searchParams.set('w', String(width));
+      sizedUrl.searchParams.set('q', '75');
+      sizedUrl.searchParams.set('auto', 'format');
+      return `${sizedUrl.toString()} ${width}w`;
+    }).join(', ');
+  } catch {
+    return undefined;
+  }
+};
 
 export default function Menu() {
   const [searchParams] = useSearchParams();
@@ -24,7 +39,6 @@ export default function Menu() {
     fetchMenu, 
     setStoreId, 
     setTable, 
-    cart, 
     addToCart, 
     activeOrder
   } = useStore();
@@ -37,42 +51,61 @@ export default function Menu() {
   // Stock status per branch
   const [stockStatus, setStockStatus] = useState<{ [id: string]: boolean }>({});
 
-  // Auth Modal state
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
   useEffect(() => {
     // Load guest session from localStorage if exists
     const savedSession = localStorage.getItem('guestSession');
+    let sessionStoreId: number | null = null;
+    let sessionTable: string | null = null;
     if (savedSession) {
-      const session = JSON.parse(savedSession);
-      setStoreId(session.storeId);
-      setTable(session.tableNumber || session.tableId);
-      fetchMenu(session.storeId);
-    } else {
-      if (storeIdParam) setStoreId(storeIdParam);
-      if (tableParam) setTable(tableParam);
-      if (storeIdParam) fetchMenu(storeIdParam);
+      try {
+        const session = JSON.parse(savedSession);
+        const parsedStoreId = Number(session.storeId);
+        if (Number.isInteger(parsedStoreId) && parsedStoreId > 0) {
+          sessionStoreId = parsedStoreId;
+          sessionTable = String(session.tableNumber || session.tableId || '');
+        } else {
+          localStorage.removeItem('guestSession');
+        }
+      } catch {
+        localStorage.removeItem('guestSession');
+      }
     }
 
+    const targetStoreId = sessionStoreId || storeIdParam;
+    if (targetStoreId) {
+      setStoreId(targetStoreId);
+      const currentMenu = useStore.getState();
+      if (currentMenu.storeInfo?.storeId !== targetStoreId || currentMenu.menuItems.length === 0) {
+        fetchMenu(targetStoreId);
+      }
+    }
+    const targetTable = sessionTable || tableParam;
+    if (targetTable) setTable(targetTable);
+
     const loadStock = () => {
-      const saved = storeIdParam ? localStorage.getItem(`webcafe_stock_store_${storeIdParam}`) : null;
-      setStockStatus(saved ? JSON.parse(saved) : {});
+      const saved = targetStoreId ? localStorage.getItem(`webcafe_stock_store_${targetStoreId}`) : null;
+      try {
+        setStockStatus(saved ? JSON.parse(saved) : {});
+      } catch {
+        setStockStatus({});
+      }
     };
 
     loadStock();
     window.addEventListener('storage', loadStock);
     return () => window.removeEventListener('storage', loadStock);
-  }, [storeIdParam, tableParam]);
+  }, [storeIdParam, tableParam, fetchMenu, setStoreId, setTable]);
 
   // Filter out Quà Lưu Niệm
   const displayCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
     .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'));
+  const firstCategoryName = displayCategories[0]?.name || displayCategories[0]?.id;
 
   useEffect(() => {
-    if (displayCategories.length > 0 && (!activeCategory || activeCategory === 'Cà Phê Pha Máy')) {
-      setActiveCategory(displayCategories[0].name || displayCategories[0].id);
+    if (firstCategoryName && (!activeCategory || activeCategory === 'Cà Phê Pha Máy')) {
+      setActiveCategory(firstCategoryName);
     }
-  }, [categories]);
+  }, [firstCategoryName, activeCategory]);
 
   // Reset page when category or search changes
   useEffect(() => {
@@ -242,7 +275,7 @@ export default function Menu() {
                 Không tìm thấy món nào trong danh mục này.
               </div>
             ) : (
-              paginatedItems.map((item) => {
+              paginatedItems.map((item, index) => {
                 const isOutOfStock = stockStatus[item.id.toString()] === false;
 
                 return (
@@ -267,9 +300,18 @@ export default function Menu() {
                     )}
 
                     <Link to={`/product/${item.id}`} className="relative m-2 h-24 w-24 shrink-0 overflow-hidden rounded-xl block bg-surface-container-low sm:m-0 sm:h-64 sm:w-auto sm:rounded-none">
-                      <div className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500" 
-                           style={{ backgroundImage: `url('${item.image}')` }}>
-                      </div>
+                      <img
+                        src={item.image}
+                        srcSet={getResponsiveImageSources(item.image)}
+                        sizes="(max-width: 639px) 96px, (max-width: 1279px) 50vw, 33vw"
+                        alt={item.name}
+                        width={500}
+                        height={500}
+                        loading={index === 0 ? 'eager' : 'lazy'}
+                        fetchPriority={index === 0 ? 'high' : 'auto'}
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
                       <div className="absolute bottom-1.5 right-1.5 sm:bottom-3 sm:right-3 px-1.5 sm:px-3 py-0.5 sm:py-1 bg-primary text-on-primary rounded-md sm:rounded-lg font-bold text-[10px] sm:text-label-md shadow-md">
                           {item.price.toLocaleString('vi-VN')}đ
                       </div>
@@ -365,12 +407,10 @@ export default function Menu() {
 
 
       {/* Floating AI Sommelier Chat Widget */}
-      <AiSommelierChat mode="floating" />
+      <DeferredAiSommelierChat />
       
       <MobileBottomNav />
 
-      {/* Auth Modal */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }

@@ -1,0 +1,14 @@
+# AI-SMARTSERVE - Smart Cafe Menu & Ordering Platform
+
+> AI-SMARTSERVE provides smart cafe digital menu ordering with AI Sommelier assistance and contactless QR payment.
+
+## Project Information
+- Name: AI-SMARTSERVE (WebCafe)
+- URL: https://www.ai-smartserve.io.vn
+- Category: Smart F&B Ordering & E-commerce System
+
+## Key Features
+- Handcrafted Menu with Coffee, Milk Tea, Fruit Tea, and Bakery.
+- AI Sommelier drink recommendations and personalized pairing.
+- Seamless VietQR PayOS payment integration.
+- Real-time order status tracking with SignalR.
