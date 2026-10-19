@@ -1,0 +1,9 @@
+# robots.txt for AI-SMARTSERVE
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /staff/
+Disallow: /system-admin/
+
+Sitemap: https://www.ai-smartserve.io.vn/sitemap.xml
+Agentmap: https://www.ai-smartserve.io.vn/ai-catalog.json

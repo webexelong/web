@@ -1,16 +1,35 @@
 {
-  "name": "AI-SMARTSERVE",
-  "description": "Smart cafe ordering and AI drink sommelier platform",
-  "version": "1.0.0",
-  "url": "https://www.ai-smartserve.io.vn",
-  "endpoints": {
-    "menu": "https://www.ai-smartserve.io.vn/menu",
-    "cart": "https://www.ai-smartserve.io.vn/cart"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "AI-SMARTSERVE",
+    "documentationUrl": "https://www.ai-smartserve.io.vn",
+    "logoUrl": "https://www.ai-smartserve.io.vn/favicon.svg"
   },
-  "capabilities": [
-    "browse-menu",
-    "view-product-details",
-    "order-placement",
-    "ai-recommendations"
+  "entries": [
+    {
+      "identifier": "urn:ai-smartserve:menu:browse",
+      "displayName": "Thực Đơn Trực Tuyến",
+      "type": "api",
+      "description": "Tra cứu danh mục thực đơn đồ uống và bánh ngọt kèm giá và tình trạng còn món theo thời gian thực.",
+      "url": "https://www.ai-smartserve.io.vn/table/1/1",
+      "representativeQueries": [
+        "xem menu quán cà phê",
+        "danh sách đồ uống cà phê hôm nay",
+        "giá winter peppermint mocha"
+      ]
+    },
+    {
+      "identifier": "urn:ai-smartserve:sommelier:recommend",
+      "displayName": "Trợ Lý AI Sommelier Đồ Uống",
+      "type": "api",
+      "description": "Gợi ý đồ uống thông minh theo tâm trạng, độ ngọt, mức đá và thời điểm trong ngày.",
+      "url": "https://www.ai-smartserve.io.vn/ai-suggest",
+      "representativeQueries": [
+        "hôm nay nên uống cà phê gì",
+        "gợi ý thức uống ít ngọt nhiều đá",
+        "hỏi AI Sommelier chọn món"
+      ]
+    }
   ]
 }
