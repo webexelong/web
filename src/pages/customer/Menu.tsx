@@ -12,14 +12,29 @@ const DEFAULT_CATEGORIES = [
   { id: 'Bánh Ngọt', name: 'Bánh Ngọt', icon: 'bakery_dining' }
 ];
 
+const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
+  try {
+    const url = new URL(imageUrl);
+    if (url.hostname === 'images.unsplash.com') {
+      url.searchParams.set('w', String(width));
+      url.searchParams.set('q', '70');
+      url.searchParams.set('auto', 'format');
+      return url.toString();
+    }
+    return imageUrl;
+  } catch {
+    return imageUrl;
+  }
+};
+
 const getResponsiveImageSources = (imageUrl: string) => {
   try {
     const url = new URL(imageUrl);
     if (url.hostname !== 'images.unsplash.com') return undefined;
-    return [160, 320, 640, 960].map(width => {
+    return [160, 240, 360, 480, 640].map(width => {
       const sizedUrl = new URL(url);
       sizedUrl.searchParams.set('w', String(width));
-      sizedUrl.searchParams.set('q', '75');
+      sizedUrl.searchParams.set('q', '70');
       sizedUrl.searchParams.set('auto', 'format');
       return `${sizedUrl.toString()} ${width}w`;
     }).join(', ');
@@ -301,7 +316,7 @@ export default function Menu() {
 
                     <Link to={`/product/${item.id}`} className="relative m-2 h-24 w-24 shrink-0 overflow-hidden rounded-xl block bg-surface-container-low sm:m-0 sm:h-64 sm:w-auto sm:rounded-none">
                       <img
-                        src={item.image}
+                        src={getOptimizedImageUrl(item.image, 320)}
                         srcSet={getResponsiveImageSources(item.image)}
                         sizes="(max-width: 639px) 96px, (max-width: 1279px) 50vw, 33vw"
                         alt={item.name}
