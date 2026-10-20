@@ -84,7 +84,23 @@ const loadInitialGuestSession = (): GuestSession | null => {
   return null;
 };
 
+const loadInitialCart = (): CartItem[] => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const saved = localStorage.getItem('webcafe_cart');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse cart from localStorage', e);
+  }
+  return [];
+};
+
 const initialGuestSession = loadInitialGuestSession();
+const initialCart = loadInitialCart();
 const menuRequests = new Map<number, Promise<void>>();
 
 interface StoreState {
@@ -299,7 +315,7 @@ export const useStore = create<StoreState>((set, get) => ({
   currentTable: initialGuestSession?.tableNumber || (initialGuestSession?.tableId ? String(initialGuestSession.tableId) : null),
   currentTableId: typeof initialGuestSession?.tableId === 'number' ? initialGuestSession.tableId : (Number(initialGuestSession?.tableId) || null),
   currentTableNumber: initialGuestSession?.tableNumber || null,
-  cart: [],
+  cart: initialCart,
   appliedVoucherCode: null,
   voucherDiscount: 0,
   isLoading: false,
@@ -484,10 +500,10 @@ export const useStore = create<StoreState>((set, get) => ({
       ))
     );
 
+    let updatedCart: CartItem[];
     if (existingIndex > -1) {
-      const updatedCart = [...get().cart];
+      updatedCart = [...get().cart];
       updatedCart[existingIndex].quantity += (options.quantity || 1);
-      set({ cart: updatedCart });
     } else {
       const newCartItem: CartItem = {
         cartItemId,
@@ -507,8 +523,17 @@ export const useStore = create<StoreState>((set, get) => ({
         note: options.note,
         rawDto: item.rawDto || item,
       };
-      set({ cart: [...get().cart, newCartItem] });
+      updatedCart = [...get().cart, newCartItem];
     }
+
+    // Persist to localStorage
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+
+    set({ cart: updatedCart });
 
     // Gửi sự kiện add_to_cart lên Google Analytics 4
     try {
@@ -524,21 +549,38 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  removeFromCart: (key: string) => set({
-    cart: get().cart.filter(i => (i.cartItemId || i.id) !== key)
-  }),
+  removeFromCart: (key: string) => {
+    const updatedCart = get().cart.filter(i => (i.cartItemId || i.id) !== key);
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+    set({ cart: updatedCart });
+  },
 
   updateQuantity: (key: string, quantity: number) => {
     if (quantity <= 0) {
       get().removeFromCart(key);
       return;
     }
-    set({
-      cart: get().cart.map(i => (i.cartItemId || i.id) === key ? { ...i, quantity } : i)
-    });
+    const updatedCart = get().cart.map(i => (i.cartItemId || i.id) === key ? { ...i, quantity } : i);
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+    set({ cart: updatedCart });
   },
 
-  clearCart: () => set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 }),
+  clearCart: () => {
+    try {
+      localStorage.removeItem('webcafe_cart');
+    } catch (e) {
+      console.warn('Failed to clear cart from localStorage', e);
+    }
+    set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 });
+  },
 
   setVoucher: (code, discount) => set({ appliedVoucherCode: code, voucherDiscount: discount }),
 

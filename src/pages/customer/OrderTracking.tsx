@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import MobileBottomNav from '../../components/MobileBottomNav';
 import { useStore, type Order } from '../../store/useStore';
 import { orderApi } from '../../api/apis';
+import signalRService from '../../api/signalr';
 
 export default function OrderTracking() {
   const [searchParams] = useSearchParams();
@@ -11,10 +12,57 @@ export default function OrderTracking() {
   
   const { activeOrder, orders, initRealtime, currentStoreId, guestSession } = useStore();
   const [currentOrder, setCurrentOrder] = useState<Order | null>(activeOrder || null);
+  const [readyNotification, setReadyNotification] = useState<{ message: string; show: boolean } | null>(null);
 
   useEffect(() => {
     initRealtime(currentStoreId);
-  }, [currentStoreId]);
+
+    // Join order group if we have an orderId
+    if (currentOrder?.id) {
+      const numericOrderId = parseInt(currentOrder.id);
+      if (!isNaN(numericOrderId)) {
+        signalRService.joinOrderGroup(numericOrderId);
+      }
+    }
+
+    // Subscribe to OrderReady event
+    const handleOrderReady = (orderId: number, orderCode: string, message: string) => {
+      console.log(`🔔 Order Ready: ${orderCode} - ${message}`);
+      
+      // Show notification
+      setReadyNotification({ message, show: true });
+
+      // Play notification sound
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.warn('Failed to play notification sound:', e));
+      } catch (e) {
+        console.warn('Audio not supported:', e);
+      }
+
+      // Trigger vibration on mobile
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+      }
+
+      // Auto-hide notification after 10 seconds
+      setTimeout(() => {
+        setReadyNotification(prev => prev ? { ...prev, show: false } : null);
+      }, 10000);
+    };
+
+    signalRService.onOrderReady(handleOrderReady);
+
+    return () => {
+      signalRService.offOrderReady(handleOrderReady);
+      if (currentOrder?.id) {
+        const numericOrderId = parseInt(currentOrder.id);
+        if (!isNaN(numericOrderId)) {
+          signalRService.leaveOrderGroup(numericOrderId);
+        }
+      }
+    };
+  }, [currentStoreId, currentOrder?.id]);
 
   useEffect(() => {
     // Priority 1: Active order in store
@@ -313,6 +361,33 @@ export default function OrderTracking() {
           </div>
         )}
       </main>
+
+      {/* Order Ready Notification Modal */}
+      {readyNotification && readyNotification.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 animate-fadeIn">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4 animate-bounce">
+                <span className="material-symbols-outlined text-5xl text-green-600 dark:text-green-400">
+                  check_circle
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-primary dark:text-orange-400 mb-2">
+                Đơn Hàng Sẵn Sàng! 🎉
+              </h2>
+              <p className="text-base text-on-surface dark:text-gray-200 mb-6">
+                {readyNotification.message}
+              </p>
+              <button
+                onClick={() => setReadyNotification(null)}
+                className="w-full px-6 py-3 bg-primary dark:bg-orange-600 text-white rounded-xl font-bold text-base hover:bg-primary-container dark:hover:bg-orange-700 transition-colors shadow-md"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MobileBottomNav />
     </div>

@@ -11,6 +11,7 @@ namespace WebCafe.Backend.Hubs
         Task NewOrderReceived(OrderDto order);
         Task OrderStatusChanged(int orderId, string status, string orderCode);
         Task TableStatusChanged(int tableId, string status);
+        Task OrderReady(int orderId, string orderCode, string message);
     }
 
     public class OrderHub : Hub<IOrderHubClient>
@@ -42,6 +43,19 @@ namespace WebCafe.Backend.Hubs
             await _tenantAccess.EnsureTableAccessAsync(tableId);
             await Groups.AddToGroupAsync(Context.ConnectionId, $"table_{tableId}");
         }
+
+        // Allow guests to join order group for tracking (no authorization required for guests)
+        [AllowAnonymous]
+        public async Task JoinOrderGroup(int orderId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"order_{orderId}");
+        }
+
+        [AllowAnonymous]
+        public async Task LeaveOrderGroup(int orderId)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"order_{orderId}");
+        }
     }
 
     public interface IOrderNotificationService
@@ -49,6 +63,7 @@ namespace WebCafe.Backend.Hubs
         Task NotifyNewOrderAsync(int storeId, OrderDto order);
         Task NotifyOrderStatusChangedAsync(int storeId, int? tableId, int orderId, string status, string orderCode);
         Task NotifyTableStatusChangedAsync(int storeId, int tableId, string status);
+        Task NotifyOrderReadyAsync(int orderId, string orderCode, string tableNumber);
     }
 
     public class OrderNotificationService : IOrderNotificationService
@@ -72,11 +87,24 @@ namespace WebCafe.Backend.Hubs
             {
                 await _hubContext.Clients.Group($"table_{tableId.Value}").OrderStatusChanged(orderId, status, orderCode);
             }
+
+            // Notify guests when order is ready
+            if (status == "ready")
+            {
+                var message = $"Đơn hàng #{orderCode} của bạn đã sẵn sàng! Mời bạn đến quầy lấy món.";
+                await _hubContext.Clients.Group($"order_{orderId}").OrderReady(orderId, orderCode, message);
+            }
         }
 
         public async Task NotifyTableStatusChangedAsync(int storeId, int tableId, string status)
         {
             await _hubContext.Clients.Group($"store_{storeId}").TableStatusChanged(tableId, status);
+        }
+
+        public async Task NotifyOrderReadyAsync(int orderId, string orderCode, string tableNumber)
+        {
+            var message = $"Đơn hàng #{orderCode} tại {tableNumber} đã sẵn sàng!";
+            await _hubContext.Clients.Group($"order_{orderId}").OrderReady(orderId, orderCode, message);
         }
     }
 }

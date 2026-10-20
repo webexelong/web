@@ -176,9 +176,9 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
   };
 
   return (
-    <div className="bg-surface-container-lowest rounded-3xl shadow-sm border border-outline-variant/20 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-surface-container-lowest dark:bg-gray-800 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-gray-700/30 overflow-hidden hover:shadow-md transition-shadow">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary-container p-4 text-white">
+      <div className="bg-gradient-to-br from-primary to-primary-container dark:from-orange-600 dark:to-orange-700 p-4 text-white">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-bold text-lg">#{order.orderCode}</h3>
           <span className="text-sm opacity-90">{getElapsedTime()}</span>
@@ -200,7 +200,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
       </div>
 
       {/* Status Badge + Print Button */}
-      <div className="px-4 py-3 bg-surface-container-low border-b border-outline-variant/15 flex items-center justify-between">
+      <div className="px-4 py-3 bg-surface-container-low dark:bg-gray-700/40 border-b border-outline-variant/15 dark:border-gray-600/30 flex items-center justify-between">
         <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${statusConfig.color} text-sm font-semibold`}>
           <span className="material-symbols-outlined text-base">{statusConfig.icon}</span>
           <span>{statusConfig.label}</span>
@@ -209,7 +209,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
         <button
           type="button"
           onClick={() => setShowPrintModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/20 bg-surface-container-lowest hover:bg-primary/5 text-primary font-bold text-xs shadow-2xs transition-all active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/20 dark:border-orange-500/30 bg-surface-container-lowest dark:bg-gray-600/40 hover:bg-primary/5 dark:hover:bg-orange-500/10 text-primary dark:text-orange-400 font-bold text-xs shadow-2xs transition-all active:scale-95"
           title="In hóa đơn thanh toán hoặc phiếu pha chế bếp"
         >
           <span className="material-symbols-outlined text-base">print</span>
@@ -221,12 +221,12 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
       <div className="p-4">
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="w-full flex items-center justify-between text-left mb-3 hover:bg-surface-container-low p-2 rounded-xl transition-colors"
+          className="w-full flex items-center justify-between text-left mb-3 hover:bg-surface-container-low dark:hover:bg-gray-700/40 p-2 rounded-xl transition-colors"
         >
-          <span className="font-semibold text-on-surface">
+          <span className="font-semibold text-on-surface dark:text-gray-200">
             {order.items.length} món ({order.items.reduce((sum, item) => sum + item.quantity, 0)} phần)
           </span>
-          <span className={`material-symbols-outlined text-on-surface-variant transition-transform ${showDetails ? 'rotate-180' : ''}`}>
+          <span className={`material-symbols-outlined text-on-surface-variant dark:text-gray-400 transition-transform ${showDetails ? 'rotate-180' : ''}`}>
             expand_more
           </span>
         </button>
@@ -234,25 +234,25 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
         {showDetails && (
           <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
             {order.items.map((item, idx) => (
-              <div key={idx} className="bg-surface-container-low p-3 rounded-2xl text-sm">
+              <div key={idx} className="bg-surface-container-low dark:bg-gray-700/40 p-3 rounded-2xl text-sm">
                 <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-on-surface">
+                  <span className="font-semibold text-on-surface dark:text-gray-200">
                     {item.quantity}x {item.menuItemName}
                   </span>
-                  <span className="text-on-surface-variant">{item.unitPrice.toLocaleString()}đ</span>
+                  <span className="text-on-surface-variant dark:text-gray-400">{item.unitPrice.toLocaleString()}đ</span>
                 </div>
                 {item.sizeName && (
-                  <p className="text-on-surface-variant text-xs">Size: {item.sizeName}</p>
+                  <p className="text-on-surface-variant dark:text-gray-400 text-xs">Size: {item.sizeName}</p>
                 )}
-                <div className="flex gap-3 text-xs text-on-surface-variant mt-1">
+                <div className="flex gap-3 text-xs text-on-surface-variant dark:text-gray-400 mt-1">
                   <span>🧊 {item.iceLevel}</span>
                   <span>🍯 {item.sugarLevel}</span>
                 </div>
                 {item.toppings && item.toppings.length > 0 && (
-                  <p className="text-xs text-primary mt-1">+ {item.toppings.join(', ')}</p>
+                  <p className="text-xs text-primary dark:text-orange-400 mt-1">+ {item.toppings.join(', ')}</p>
                 )}
                 {item.note && (
-                  <p className="text-xs text-on-surface-variant italic mt-1">💬 {item.note}</p>
+                  <p className="text-xs text-on-surface-variant dark:text-gray-400 italic mt-1">💬 {item.note}</p>
                 )}
               </div>
             ))}
@@ -261,19 +261,19 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
 
         {/* Order Note */}
         {order.note && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-3 mb-3">
             <div className="flex items-start gap-2">
-            <span className="material-symbols-outlined text-amber-700 text-base">info</span>
-            <p className="text-sm text-amber-900">{order.note}</p>
+            <span className="material-symbols-outlined text-amber-700 dark:text-amber-400 text-base">info</span>
+            <p className="text-sm text-amber-900 dark:text-amber-300">{order.note}</p>
             </div>
           </div>
         )}
 
         {/* Total Amount */}
-        <div className="border-t border-outline-variant/15 pt-3 mb-4">
+        <div className="border-t border-outline-variant/15 dark:border-gray-600/30 pt-3 mb-4">
           <div className="flex justify-between items-center">
-            <span className="text-on-surface-variant font-medium">Tổng tiền:</span>
-            <span className="text-xl font-bold text-primary">
+            <span className="text-on-surface-variant dark:text-gray-400 font-medium">Tổng tiền:</span>
+            <span className="text-xl font-bold text-primary dark:text-orange-400">
               {order.totalAmount.toLocaleString()}đ
             </span>
           </div>
@@ -285,7 +285,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
             <button
               onClick={() => handleStatusUpdate(statusConfig.nextAction!.status)}
               disabled={loading}
-              className={`flex-1 ${statusConfig.nextAction.color} text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex-1 ${statusConfig.nextAction.color} py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {loading ? (
                 <>
@@ -305,7 +305,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
             <button
               onClick={handleCancelOrder}
               disabled={loading}
-              className="px-4 py-2.5 bg-error hover:bg-error/90 text-white rounded-xl font-bold text-xs flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 bg-error dark:bg-red-700 hover:bg-error/90 dark:hover:bg-red-800 text-white rounded-xl font-bold text-xs flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Hủy đơn hàng"
             >
               <span className="material-symbols-outlined text-xl">close</span>

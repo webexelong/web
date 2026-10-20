@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function StaffLayout() {
   const navigate = useNavigate();
@@ -48,6 +49,9 @@ export default function StaffLayout() {
             <span className="material-symbols-outlined text-on-surface-variant text-lg">search</span>
             <input className="bg-transparent border-none focus:ring-0 text-xs text-on-surface-variant w-40 outline-none" placeholder="Tìm đơn hàng..." type="text" />
           </div>
+          
+          {/* Theme Toggle */}
+          <ThemeToggle />
           
           <button 
             onClick={() => navigate('/staff/orders')}

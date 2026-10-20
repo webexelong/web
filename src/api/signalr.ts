@@ -51,6 +51,28 @@ class SignalRService {
     }
   }
 
+  public async joinOrderGroup(orderId: number) {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('JoinOrderGroup', orderId);
+        console.log(`✅ Guest joined order group: ${orderId}`);
+      } catch (err) {
+        console.error('❌ Failed to join order group:', err);
+      }
+    }
+  }
+
+  public async leaveOrderGroup(orderId: number) {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('LeaveOrderGroup', orderId);
+        console.log(`✅ Left order group: ${orderId}`);
+      } catch (err) {
+        console.error('❌ Failed to leave order group:', err);
+      }
+    }
+  }
+
   public onNewOrder(callback: (order: OrderDto) => void) {
     if (this.connection) {
       this.connection.on('NewOrderReceived', callback);
@@ -93,6 +115,19 @@ class SignalRService {
         this.connection.off('TableStatusChanged');
         this.connection.off('tablestatuschanged');
       }
+    }
+  }
+
+  public onOrderReady(callback: (orderId: number, orderCode: string, message: string) => void) {
+    if (this.connection) {
+      this.connection.on('OrderReady', callback);
+    }
+  }
+
+  public offOrderReady(callback?: (...args: any[]) => void) {
+    if (this.connection) {
+      if (callback) this.connection.off('OrderReady', callback);
+      else this.connection.off('OrderReady');
     }
   }
 

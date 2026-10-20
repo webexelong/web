@@ -24,17 +24,17 @@ export default function StatusFilter({ activeFilter, onFilterChange, counts }: S
     
     const colorClasses = {
       gray: isActive 
-        ? 'bg-primary text-white border-primary'
-        : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/30 hover:bg-primary/5',
+        ? 'bg-primary dark:bg-orange-600 text-white border-primary dark:border-orange-600'
+        : 'bg-surface-container-lowest dark:bg-gray-800 text-on-surface-variant dark:text-gray-400 border-outline-variant/30 dark:border-gray-700 hover:bg-primary/5 dark:hover:bg-orange-500/10',
       yellow: isActive 
-        ? 'bg-amber-700 text-white border-amber-700'
-        : 'bg-surface-container-lowest text-amber-800 border-amber-200 hover:bg-amber-50',
+        ? 'bg-amber-700 dark:bg-amber-600 text-white border-amber-700 dark:border-amber-600'
+        : 'bg-surface-container-lowest dark:bg-gray-800 text-amber-800 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-50 dark:hover:bg-amber-900/20',
       blue: isActive 
-        ? 'bg-blue-700 text-white border-blue-700'
-        : 'bg-surface-container-lowest text-blue-800 border-blue-200 hover:bg-blue-50',
+        ? 'bg-blue-700 dark:bg-blue-600 text-white border-blue-700 dark:border-blue-600'
+        : 'bg-surface-container-lowest dark:bg-gray-800 text-blue-800 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20',
       green: isActive 
-        ? 'bg-emerald-700 text-white border-emerald-700'
-        : 'bg-surface-container-lowest text-emerald-800 border-emerald-200 hover:bg-emerald-50',
+        ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-600'
+        : 'bg-surface-container-lowest dark:bg-gray-800 text-emerald-800 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
     };
 
     return `flex items-center gap-2 px-4 py-3 rounded-2xl border font-bold text-xs transition-all ${
@@ -67,13 +67,13 @@ export default function StatusFilter({ activeFilter, onFilterChange, counts }: S
 
       {/* Mobile: Dropdown Filter */}
       <div className="md:hidden">
-          <label className="block text-xs font-bold text-on-surface-variant mb-2">
+          <label className="block text-xs font-bold text-on-surface-variant dark:text-gray-400 mb-2">
           Lọc theo trạng thái
         </label>
         <select
           value={activeFilter}
           onChange={(e) => onFilterChange(e.target.value as any)}
-          className="w-full px-4 py-3 border border-outline-variant/30 rounded-2xl font-bold text-on-surface bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="w-full px-4 py-3 border border-outline-variant/30 dark:border-gray-700 rounded-2xl font-bold text-on-surface dark:text-gray-200 bg-surface-container-lowest dark:bg-gray-800 focus:ring-2 focus:ring-primary/20 dark:focus:ring-orange-500/20 focus:border-primary dark:focus:border-orange-500"
         >
           {FILTERS.map((filter) => (
             <option key={filter.key} value={filter.key}>
