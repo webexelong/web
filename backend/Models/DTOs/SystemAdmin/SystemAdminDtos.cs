@@ -2,6 +2,21 @@ using System.ComponentModel.DataAnnotations;
 
 namespace WebCafe.Backend.Models.DTOs.SystemAdmin
 {
+    public class SubscriptionReportDto
+    {
+        public int ActiveSubscriptions { get; set; }
+        public int TrialingSubscriptions { get; set; }
+        public int GracePeriodSubscriptions { get; set; }
+        public decimal PaidRevenue { get; set; }
+        public List<SubscriptionPlanReportDto> Plans { get; set; } = new();
+    }
+
+    public class SubscriptionPlanReportDto
+    {
+        public string PlanCode { get; set; } = string.Empty;
+        public int TenantCount { get; set; }
+        public decimal MonthlyRevenue { get; set; }
+    }
     /// <summary>
     /// Thống kê doanh thu theo ngày
     /// </summary>
@@ -94,5 +109,27 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
 
         [Range(1, 100, ErrorMessage = "Số chi nhánh tối đa phải từ 1 đến 100.")]
         public int MaxStores { get; set; } = 1;
+    }
+
+    public class SubscriptionPlanConfigDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public decimal MonthlyPrice { get; set; }
+        public int MaxStores { get; set; }
+        public int MaxStaff { get; set; }
+        public int MaxTablesPerStore { get; set; }
+        public bool IsActive { get; set; }
+        public Dictionary<string, bool> Features { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public class UpdateSubscriptionPlanRequest
+    {
+        [Range(0, 1000000000)] public decimal MonthlyPrice { get; set; }
+        [Range(1, 1000)] public int MaxStores { get; set; }
+        [Range(1, 10000)] public int MaxStaff { get; set; }
+        [Range(1, 100000)] public int MaxTablesPerStore { get; set; }
+        public bool IsActive { get; set; } = true;
+        public Dictionary<string, bool>? Features { get; set; }
     }
 }

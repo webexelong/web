@@ -5,16 +5,20 @@ import { ShoppingCart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { customerApi } from '../../api/apis';
+import { apiClient } from '../../api/apiClient';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
 
 export default function Cart() {
-  const { 
-    cart, 
-    updateQuantity, 
-    removeFromCart, 
-    createOrder, 
+  const {
+    cart,
+    updateQuantity,
+    removeFromCart,
+    createOrder,
+    currentStoreId,
     currentTable,
+    currentTableId,
+    currentTableNumber,
     appliedVoucherCode,
     voucherDiscount,
     setVoucher,
@@ -45,11 +49,12 @@ export default function Cart() {
   const discountAmount = voucherDiscount ? (subtotal * voucherDiscount / 100) : 0;
   const serviceFee = cart.length > 0 ? 0 : 0;
 
-  // Lấy thông tin điểm tích lũy của khách khi đã đăng nhập
+  // Lấy thông tin điểm tích lũy của khách theo đúng quán đang ghé
   useEffect(() => {
     if (isAuthenticated && user?.username) {
       setLoadingProfile(true);
-      customerApi.getProfile(user.username)
+      const storeIdForProfile = guestSession?.storeId || currentStoreId;
+      customerApi.getProfile({ phone: user.username, storeId: storeIdForProfile > 0 ? storeIdForProfile : undefined })
         .then(profile => {
           setCustomerProfile(profile);
           if (profile.phone && !customerPhone) {
@@ -68,7 +73,7 @@ export default function Cart() {
       setPointsToUse(0);
       setPointsInput('');
     }
-  }, [isAuthenticated, user?.username]);
+  }, [isAuthenticated, user?.username, guestSession?.storeId, currentStoreId]);
 
   const pointsToMoney = customerProfile?.pointsToMoney || 200;
   const maxPointsByOrder = Math.floor(Math.max(0, subtotal - discountAmount) / pointsToMoney);
@@ -76,12 +81,25 @@ export default function Cart() {
   const pointsDiscountAmount = pointsToUse * pointsToMoney;
   const total = Math.max(0, subtotal - discountAmount - pointsDiscountAmount + serviceFee);
 
-  const handleApplyVoucher = () => {
+  const handleApplyVoucher = async () => {
     if (!voucherInput.trim()) return;
-    if (voucherInput.toUpperCase() === 'WELCOME50' || voucherInput.toUpperCase() === 'GIAM10') {
-      setVoucher(voucherInput.toUpperCase(), 10);
-      setVoucherError('');
-    } else {
+    try {
+      const sId = currentStoreId || guestSession?.storeId || 1;
+      const res = await apiClient.post('/vouchers/validate', {
+        code: voucherInput.trim().toUpperCase(),
+        storeId: sId,
+        orderAmount: subtotal,
+        customerPhone: customerPhone || undefined
+      });
+      if (res.data?.success && res.data?.data?.isValid) {
+        const v = res.data.data;
+        const discountVal = v.discountType === 'percent' ? (v.discountValue || 0) : Math.round((v.discountAmount / subtotal) * 100);
+        setVoucher(v.code, discountVal);
+        setVoucherError('');
+      } else {
+        setVoucherError(res.data?.data?.message || res.data?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch {
       setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
     }
   };
@@ -122,13 +140,18 @@ export default function Cart() {
       if (guestSession) {
         updateGuestInfo(customerName, customerPhone);
       }
-      
-      const tableToUse = guestSession?.tableId || currentTable || 'T01';
-      const order = await createOrder(tableToUse, customerPhone, customerName, orderNote, pointsToUse);
+
+      const tableToUse = guestSession?.tableId || currentTableId || currentTable;
+      if (!tableToUse) {
+        setPointsError('Chưa xác định được số bàn của bạn. Vui lòng quét mã QR tại bàn trước khi đặt món.');
+        setIsSubmitting(false);
+        return;
+      }
+      const order = await createOrder(tableToUse, customerPhone, customerName, orderNote, 'qr_table', undefined, pointsToUse);
       navigate(`/order-success?code=${order.orderCode}&orderId=${order.id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Order creation error:', err);
-      navigate('/order-success');
+      setPointsError(err?.response?.data?.message || err?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -148,10 +171,40 @@ export default function Cart() {
               <h1 className="font-headline-lg text-headline-lg text-primary font-bold">Thanh Toán & Đặt Món</h1>
             </div>
 
+            {/* Table Identification Card */}
+            {(guestSession?.tableNumber || currentTableNumber || currentTable) ? (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-800 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl">table_restaurant</span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Vị trí phục vụ</div>
+                    <div className="text-base font-bold text-amber-950">
+                      {(guestSession?.tableNumber || currentTableNumber || currentTable)?.toLowerCase().includes('bàn')
+                        ? (guestSession?.tableNumber || currentTableNumber || currentTable)
+                        : `Bàn ${guestSession?.tableNumber || currentTableNumber || currentTable}`}
+                      {guestSession?.storeName && <span className="text-xs font-normal text-amber-800 ml-2">({guestSession.storeName})</span>}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-900 font-bold">
+                  Phục vụ tại bàn
+                </span>
+              </div>
+            ) : (
+              <div className="bg-error/10 border border-error/30 rounded-2xl p-4 flex items-center gap-3 shadow-xs text-error">
+                <span className="material-symbols-outlined text-2xl">error</span>
+                <div className="text-xs font-medium">
+                  <strong>Chưa xác định được số bàn:</strong> Vui lòng quét mã QR đặt tại bàn của bạn để nhân viên mang món ra chính xác vị trí bạn ngồi.
+                </div>
+              </div>
+            )}
+
             {/* Cart Items List */}
             <section className="space-y-stack-md">
               <h2 className="font-headline-md text-headline-md text-on-surface-variant border-b border-outline-variant/20 pb-2 font-bold">Đơn Hàng Của Bạn</h2>
-              
+
               {cart.length === 0 ? (
                 <div className="text-center py-16 flex flex-col items-center gap-4 bg-white rounded-2xl border border-outline-variant/20 p-8">
                   <span className="material-symbols-outlined text-[64px] text-outline-variant" style={{ fontVariationSettings: "'FILL' 1" }}>shopping_cart</span>
@@ -180,15 +233,15 @@ export default function Cart() {
                               {item.note && <span className="italic text-primary">"{item.note}"</span>}
                             </div>
                           </div>
-                          <button 
-                            onClick={() => removeFromCart(item.cartItemId || item.id)} 
+                          <button
+                            onClick={() => removeFromCart(item.cartItemId || item.id)}
                             className="text-error hover:bg-error/10 p-1.5 rounded-full transition-colors"
                             title="Xóa món"
                           >
                             <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
                         </div>
-                        
+
                         <div className="flex justify-between items-center mt-4">
                           <div>
                             <span className="font-headline-md text-label-md text-primary font-bold">
@@ -200,16 +253,16 @@ export default function Cart() {
                               </span>
                             )}
                           </div>
-                          
+
                           <div className="flex items-center gap-2 bg-surface-variant/40 rounded-full px-2 py-1">
-                            <button 
+                            <button
                               onClick={() => updateQuantity(item.cartItemId || item.id, item.quantity - 1)}
                               className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-primary shadow-xs hover:bg-primary hover:text-white transition-colors"
                             >
                               <span className="material-symbols-outlined text-xs">remove</span>
                             </button>
                             <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
-                            <button 
+                            <button
                               onClick={() => updateQuantity(item.cartItemId || item.id, item.quantity + 1)}
                               className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-primary shadow-xs hover:bg-primary hover:text-white transition-colors"
                             >
@@ -239,9 +292,9 @@ export default function Cart() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-on-surface-variant block mb-1">Tên khách hàng (Tùy chọn)</label>
-                    <input 
-                      type="text" 
-                      placeholder="VD: Anh Minh" 
+                    <input
+                      type="text"
+                      placeholder="VD: Anh Minh"
                       className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -249,9 +302,9 @@ export default function Cart() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-on-surface-variant block mb-1">Số điện thoại tích điểm (Tùy chọn)</label>
-                    <input 
-                      type="tel" 
-                      placeholder="VD: 0901234567" 
+                    <input
+                      type="tel"
+                      placeholder="VD: 0901234567"
                       className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
@@ -260,9 +313,9 @@ export default function Cart() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant block mb-1">Ghi chú cho quầy thu ngân / Bếp</label>
-                  <input 
-                    type="text" 
-                    placeholder="VD: Mang ra bàn sớm giúp mình nhé" 
+                  <input
+                    type="text"
+                    placeholder="VD: Mang ra bàn sớm giúp mình nhé"
                     className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
@@ -284,14 +337,14 @@ export default function Cart() {
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant block mb-1">Mã Giảm Giá</label>
                   <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Nhập WELCOME50" 
+                    <input
+                      type="text"
+                      placeholder="Nhập mã ưu đãi"
                       className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs uppercase font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={voucherInput}
                       onChange={(e) => setVoucherInput(e.target.value)}
                     />
-                    <button 
+                    <button
                       type="button"
                       onClick={handleApplyVoucher}
                       className="px-4 py-2 bg-secondary text-white rounded-xl text-xs font-bold hover:bg-secondary/90 transition-colors"
@@ -313,7 +366,7 @@ export default function Cart() {
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
                       <span className="material-symbols-outlined text-amber-500 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-                      Điểm Tích Lũy
+                      Điểm Tích Lũy {customerProfile?.tenantName ? `(${customerProfile.tenantName})` : ''}
                     </label>
                     {isAuthenticated && customerProfile && (
                       <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
@@ -325,9 +378,9 @@ export default function Cart() {
                   {isAuthenticated ? (
                     <div className="space-y-2">
                       <div className="flex gap-2">
-                        <input 
-                          type="number" 
-                          placeholder={maxUsablePoints > 0 ? `Tối đa ${maxUsablePoints} điểm` : '0 điểm'} 
+                        <input
+                          type="number"
+                          placeholder={maxUsablePoints > 0 ? `Tối đa ${maxUsablePoints} điểm` : '0 điểm'}
                           className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                           value={pointsInput}
                           onChange={(e) => handleApplyPoints(parseInt(e.target.value) || 0)}
@@ -336,7 +389,7 @@ export default function Cart() {
                           disabled={maxUsablePoints === 0}
                         />
                         {maxUsablePoints > 0 && pointsToUse < maxUsablePoints && (
-                          <button 
+                          <button
                             type="button"
                             onClick={handleUseMaxPoints}
                             className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors whitespace-nowrap shadow-sm"
@@ -345,7 +398,7 @@ export default function Cart() {
                           </button>
                         )}
                         {pointsToUse > 0 && (
-                          <button 
+                          <button
                             type="button"
                             onClick={handleClearPoints}
                             className="px-2.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-colors"
@@ -419,7 +472,7 @@ export default function Cart() {
                 </div>
 
                 {/* Submit Button */}
-                <button 
+                <button
                   onClick={handleCheckout}
                   disabled={isSubmitting}
                   className="w-full py-4 bg-primary text-white rounded-full font-headline-md text-label-md font-bold hover:bg-primary-container transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 mt-4 disabled:opacity-50"

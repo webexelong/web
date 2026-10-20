@@ -17,7 +17,7 @@ export default function SystemAdminLayout() {
 
     // Role guard: Nếu không phải SuperAdmin (ví dụ là Chủ quán hoặc Staff), chuyển về đúng nơi
     if (user && user.role !== 'SystemAdmin') {
-      if (user.role === 'Owner' || user.role === 'TenantOwner' || user.role === 'Manager') {
+      if (user.role === 'Owner' || user.role === 'TenantOwner') {
         navigate('/admin', { replace: true });
       } else {
         navigate('/staff/orders', { replace: true });
@@ -109,9 +109,9 @@ export default function SystemAdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="md:ml-64 min-h-screen pt-16 pb-24 md:pb-0">
+      <main className="md:ml-64 min-h-screen pt-[104px] pb-24 md:pb-0">
         {/* Top Navigation Bar */}
-        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-10 bg-surface/90 backdrop-blur-md h-16 flex justify-between items-center px-gutter shadow-sm border-b border-surface-container">
+        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-10 bg-surface/90 backdrop-blur-md h-[104px] flex justify-between items-center px-gutter shadow-sm border-b border-surface-container">
           <div className="flex items-center gap-4">
             <button 
               className="md:hidden p-2 -ml-2 text-primary hover:bg-surface-variant rounded-full transition-colors" 

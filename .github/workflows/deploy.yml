@@ -1,0 +1,44 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            echo "==> Navigating to webcafe directory..."
+            cd ~/webcafe
+
+            echo "==> Fetching latest changes from main..."
+            git checkout main
+            git reset --hard HEAD
+            git pull origin main
+
+            echo "==> Restoring environment configuration..."
+            if [ -f .env.docker ]; then
+              cp -f .env.docker .env
+            fi
+
+            echo "==> Ensuring database is up..."
+            docker compose up -d db
+
+            echo "==> Rebuilding and restarting backend container..."
+            docker compose up -d --build backend
+
+            echo "==> Deployment finished successfully!"

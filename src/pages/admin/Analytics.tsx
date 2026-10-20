@@ -29,7 +29,7 @@ type DatePreset = 'today' | '7days' | '30days' | 'thisMonth' | 'custom';
 
 export default function Analytics() {
   const { user } = useAuthStore();
-  const activeStoreId = user?.storeId || 1;
+  const activeStoreId = user?.storeId ?? 0;
 
   // Date Filter State
   const [preset, setPreset] = useState<DatePreset>('30days');
@@ -47,6 +47,7 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   // Hovered Chart Day State
   const [hoveredDay, setHoveredDay] = useState<DailyRevenueDto | null>(null);
@@ -121,14 +122,14 @@ export default function Analytics() {
   }
 
   const r = report;
-  const cogsPercent = r && r.netRevenue > 0 ? (r.estimatedCOGS / r.netRevenue) * 100 : 32.0;
+  const cogsPercent = r && r.netRevenue > 0 ? (r.estimatedCOGS / r.netRevenue) * 100 : 0;
 
   // Chart max calculation
   const chartDays: DailyRevenueDto[] = r?.dailyTrend || [];
   const maxRevenueInChart = Math.max(...chartDays.map((d: DailyRevenueDto) => d.revenue), 100000);
 
   return (
-    <div className="pt-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-20 animate-in fade-in duration-500 font-sans">
+    <div className="pt-24 px-4 sm:px-6 md:px-8 w-full max-w-[1600px] mx-auto pb-20 animate-in fade-in duration-500 font-sans">
       
       {/* Header & Range Filter Bar */}
       <header className="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/80 dark:bg-surface-container-low backdrop-blur-md p-5 rounded-3xl border border-primary/10 shadow-sm">
@@ -262,14 +263,14 @@ export default function Analytics() {
             </div>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-on-surface tracking-tight">
-            {formatVND(r?.estimatedCOGS || 0)}
+            {r && r.estimatedCOGS > 0 ? formatVND(r.estimatedCOGS) : 'Chưa có dữ liệu'}
           </h3>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-on-surface-variant">
             <span>Tỷ lệ giá vốn:</span>
             <span className={`font-bold px-1.5 py-0.5 rounded ${
               cogsPercent <= 32 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
             }`}>
-              {cogsPercent.toFixed(1)}%
+              {r && r.estimatedCOGS > 0 ? `${cogsPercent.toFixed(1)}%` : 'Chưa cấu hình'}
             </span>
             <span className="text-[10px] text-on-surface-variant/80">(Chuẩn 28-35%)</span>
           </div>
@@ -284,7 +285,7 @@ export default function Analytics() {
             </div>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {formatVND(r?.grossProfit || 0)}
+            {r && r.estimatedCOGS > 0 ? formatVND(r.grossProfit) : 'Chưa có dữ liệu'}
           </h3>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-on-surface-variant">
             <span>Biên lợi nhuận:</span>
@@ -319,7 +320,7 @@ export default function Analytics() {
             </div>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-on-surface tracking-tight">
-            {(r?.customerAnalytics?.retentionRate || 68.4).toFixed(1)}%
+            {(r?.customerAnalytics?.retentionRate ?? 0).toFixed(1)}%
           </h3>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-on-surface-variant">
             <span>{r?.customerAnalytics?.activeCustomers || 0} khách quay lại thường xuyên</span>
@@ -362,7 +363,9 @@ export default function Analytics() {
             <div className="h-56 flex items-end justify-between gap-1.5 sm:gap-2 px-2 pt-6 pb-2 border-b border-outline-variant/20 overflow-x-auto">
               {chartDays.map((day: DailyRevenueDto, idx: number) => {
                 const heightPercent = Math.max(8, Math.min(100, Math.round((day.revenue / maxRevenueInChart) * 100)));
-                const profitHeightPercent = Math.max(4, Math.min(heightPercent, Math.round(((day.estimatedProfit || day.revenue * 0.68) / maxRevenueInChart) * 100)));
+                const profitHeightPercent = day.revenue > 0
+                  ? Math.max(4, Math.min(heightPercent, Math.round(((day.estimatedProfit ?? 0) / maxRevenueInChart) * 100)))
+                  : 0;
                 const isHovered = hoveredDay?.date === day.date;
                 const formattedDate = day.date.includes('-') ? day.date.split('-').slice(1).join('/') : day.date;
 
@@ -378,7 +381,7 @@ export default function Analytics() {
                       <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] p-2 rounded-xl shadow-xl z-30 whitespace-nowrap pointer-events-none border border-white/10 animate-in fade-in zoom-in-95 duration-150">
                         <div className="font-bold text-amber-300">{day.date}</div>
                         <div>Doanh thu: <strong>{formatVND(day.revenue)}</strong></div>
-                        <div>Lợi nhuận: <strong className="text-emerald-400">{formatVND(day.estimatedProfit || day.revenue * 0.68)}</strong></div>
+                        <div>Lợi nhuận gộp: <strong className="text-emerald-400">{formatVND(day.estimatedProfit ?? 0)}</strong></div>
                         <div className="text-slate-400">{day.ordersCount} đơn hàng</div>
                       </div>
                     )}
@@ -411,7 +414,7 @@ export default function Analytics() {
                 </div>
                 <div className="flex items-center gap-4">
                   <span>Doanh thu: <strong className="text-on-surface">{formatVND(hoveredDay.revenue)}</strong></span>
-                  <span>Lợi nhuận: <strong className="text-emerald-600">{formatVND(hoveredDay.estimatedProfit || hoveredDay.revenue * 0.68)}</strong></span>
+                  <span>Lợi nhuận gộp: <strong className="text-emerald-600">{formatVND(hoveredDay.estimatedProfit ?? 0)}</strong></span>
                   <span>Số đơn: <strong className="text-on-surface">{hoveredDay.ordersCount}</strong></span>
                 </div>
               </div>
@@ -570,7 +573,7 @@ export default function Analytics() {
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-outline-variant/20">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full min-w-[900px] text-left border-collapse text-xs">
             <thead>
               <tr className="bg-surface-container/60 text-on-surface-variant font-bold border-b border-outline-variant/20">
                 <th className="py-3 px-4">Hạng</th>

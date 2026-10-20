@@ -3,8 +3,7 @@ import { useStore } from '../../store/useStore';
 import { useEffect, useState } from 'react';
 import MobileBottomNav from '../../components/MobileBottomNav';
 import Pagination from '../../components/Pagination';
-import AiSommelierChat from '../../components/AiSommelierChat';
-import AuthModal from '../../components/AuthModal';
+import DeferredAiSommelierChat from '../../components/DeferredAiSommelierChat';
 
 const DEFAULT_CATEGORIES = [
   { id: 'Cà Phê Pha Máy', name: 'Cà Phê Pha Máy', icon: 'coffee' },
@@ -13,9 +12,50 @@ const DEFAULT_CATEGORIES = [
   { id: 'Bánh Ngọt', name: 'Bánh Ngọt', icon: 'bakery_dining' }
 ];
 
+const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
+  try {
+    const url = new URL(imageUrl);
+    if (url.hostname === 'images.unsplash.com') {
+      url.searchParams.set('w', String(width));
+      url.searchParams.set('q', '70');
+      url.searchParams.set('auto', 'format');
+      return url.toString();
+    }
+    if (url.hostname.includes('googleusercontent.com')) {
+      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      return `${cleanUrl}=w${width}-rw`;
+    }
+    return imageUrl;
+  } catch {
+    return imageUrl;
+  }
+};
+
+const getResponsiveImageSources = (imageUrl: string) => {
+  try {
+    const url = new URL(imageUrl);
+    if (url.hostname === 'images.unsplash.com') {
+      return [160, 240, 360, 480, 640].map(width => {
+        const sizedUrl = new URL(url);
+        sizedUrl.searchParams.set('w', String(width));
+        sizedUrl.searchParams.set('q', '70');
+        sizedUrl.searchParams.set('auto', 'format');
+        return `${sizedUrl.toString()} ${width}w`;
+      }).join(', ');
+    }
+    if (url.hostname.includes('googleusercontent.com')) {
+      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      return [160, 240, 320, 480, 640].map(width => `${cleanUrl}=w${width}-rw ${width}w`).join(', ');
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export default function Menu() {
   const [searchParams] = useSearchParams();
-  const storeIdParam = searchParams.get('storeId') ? parseInt(searchParams.get('storeId')!) : 1;
+  const storeIdParam = searchParams.get('storeId') ? parseInt(searchParams.get('storeId')!) : null;
   const tableParam = searchParams.get('table') || null;
 
   const { 
@@ -24,7 +64,6 @@ export default function Menu() {
     fetchMenu, 
     setStoreId, 
     setTable, 
-    cart, 
     addToCart, 
     activeOrder
   } = useStore();
@@ -37,42 +76,61 @@ export default function Menu() {
   // Stock status per branch
   const [stockStatus, setStockStatus] = useState<{ [id: string]: boolean }>({});
 
-  // Auth Modal state
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
   useEffect(() => {
     // Load guest session from localStorage if exists
     const savedSession = localStorage.getItem('guestSession');
+    let sessionStoreId: number | null = null;
+    let sessionTable: string | null = null;
     if (savedSession) {
-      const session = JSON.parse(savedSession);
-      setStoreId(session.storeId);
-      setTable(session.tableId);
-      fetchMenu(session.storeId);
-    } else {
-      setStoreId(storeIdParam);
-      if (tableParam) setTable(tableParam);
-      fetchMenu(storeIdParam);
+      try {
+        const session = JSON.parse(savedSession);
+        const parsedStoreId = Number(session.storeId);
+        if (Number.isInteger(parsedStoreId) && parsedStoreId > 0) {
+          sessionStoreId = parsedStoreId;
+          sessionTable = String(session.tableNumber || session.tableId || '');
+        } else {
+          localStorage.removeItem('guestSession');
+        }
+      } catch {
+        localStorage.removeItem('guestSession');
+      }
     }
 
+    const targetStoreId = sessionStoreId || storeIdParam || 1;
+    if (targetStoreId) {
+      setStoreId(targetStoreId);
+      const currentMenu = useStore.getState();
+      if (currentMenu.storeInfo?.storeId !== targetStoreId || currentMenu.menuItems.length === 0) {
+        fetchMenu(targetStoreId);
+      }
+    }
+    const targetTable = sessionTable || tableParam;
+    if (targetTable) setTable(targetTable);
+
     const loadStock = () => {
-      const saved = localStorage.getItem(`webcafe_stock_store_${storeIdParam}`);
-      setStockStatus(saved ? JSON.parse(saved) : {});
+      const saved = targetStoreId ? localStorage.getItem(`webcafe_stock_store_${targetStoreId}`) : null;
+      try {
+        setStockStatus(saved ? JSON.parse(saved) : {});
+      } catch {
+        setStockStatus({});
+      }
     };
 
     loadStock();
     window.addEventListener('storage', loadStock);
     return () => window.removeEventListener('storage', loadStock);
-  }, [storeIdParam, tableParam]);
+  }, [storeIdParam, tableParam, fetchMenu, setStoreId, setTable]);
 
   // Filter out Quà Lưu Niệm
   const displayCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
     .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'));
+  const firstCategoryName = displayCategories[0]?.name || displayCategories[0]?.id;
 
   useEffect(() => {
-    if (displayCategories.length > 0 && (!activeCategory || activeCategory === 'Cà Phê Pha Máy')) {
-      setActiveCategory(displayCategories[0].name || displayCategories[0].id);
+    if (firstCategoryName && (!activeCategory || activeCategory === 'Cà Phê Pha Máy')) {
+      setActiveCategory(firstCategoryName);
     }
-  }, [categories]);
+  }, [firstCategoryName, activeCategory]);
 
   // Reset page when category or search changes
   useEffect(() => {
@@ -88,7 +146,9 @@ export default function Menu() {
       const matchCat = activeCategory === 'Tất Cả' || itemCat.includes(activeCat) || activeCat.includes(itemCat);
       const matchSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchSearch;
-    });
+    })
+    // Featured items are shown first while preserving the configured menu order.
+    .sort((a, b) => Number(Boolean(b.rawDto?.isFeatured)) - Number(Boolean(a.rawDto?.isFeatured)) || (a.rawDto?.sortOrder ?? 0) - (b.rawDto?.sortOrder ?? 0));
 
   const totalPages = Math.ceil(activeItems.length / PAGE_SIZE);
   const paginatedItems = activeItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -196,6 +256,43 @@ export default function Menu() {
             </div>
           </section>
 
+          {/* AI Sommelier Spotlight Banner */}
+          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#281E19] via-[#3D2C24] to-[#1E1715] p-4 sm:p-5 text-white shadow-md border border-amber-500/25 group transition-all hover:border-amber-500/40">
+            {/* Glowing Orb Accents */}
+            <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-primary/20 rounded-full blur-xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 flex items-center justify-center text-stone-950 shadow-md shrink-0 group-hover:rotate-6 transition-transform">
+                  <span className="material-symbols-outlined text-2xl font-bold">auto_awesome</span>
+                </div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold text-amber-300 uppercase tracking-wider mb-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Chuyên Gia Ẩm Thực AI Sommelier
+                  </div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-white leading-tight">
+                    Hôm nay bạn muốn thưởng thức món gì?
+                  </h3>
+                  <p className="text-xs text-stone-300 mt-0.5">
+                    Tư vấn món theo tâm trạng, độ ngọt, mức đá và gợi ý kết hợp đồ uống thông minh.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <Link
+                  to="/ai-suggest"
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                >
+                  <span>Hỏi AI Sommelier</span>
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Link>
+              </div>
+            </div>
+          </section>
+
           {/* Dynamic Menu Grid */}
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-stack-lg">
             {paginatedItems.length === 0 ? (
@@ -203,61 +300,76 @@ export default function Menu() {
                 Không tìm thấy món nào trong danh mục này.
               </div>
             ) : (
-              paginatedItems.map((item) => {
+              paginatedItems.map((item, index) => {
                 const isOutOfStock = stockStatus[item.id.toString()] === false;
 
                 return (
                   <div 
                     key={item.id} 
-                    className={`group bg-white rounded-2xl overflow-hidden border border-primary/5 shadow-xs transition-all duration-300 flex flex-col relative ${
+                    className={`group bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-primary/5 shadow-xs transition-all duration-300 flex flex-row sm:flex-col relative ${
                       isOutOfStock ? 'opacity-70 grayscale-[0.25] hover:shadow-xs' : 'hover:shadow-lg'
                     }`}
                   >
                     {/* Out of stock badge */}
                     {isOutOfStock && (
-                      <div className="absolute top-3 left-3 z-20 px-2.5 py-1 bg-red-600 text-white font-black text-[10px] uppercase rounded-lg shadow-md flex items-center gap-1 animate-pulse">
+                      <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-20 px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-red-600 text-white font-black text-[8px] sm:text-[10px] uppercase rounded-md sm:rounded-lg shadow-md flex items-center gap-1 animate-pulse">
                         <span className="material-symbols-outlined text-xs">block</span>
                         TẠM HẾT MÓN
                       </div>
                     )}
-
-                    <Link to={`/product/${item.id}`} className="relative h-52 sm:h-64 overflow-hidden block bg-surface-container-low">
-                      <div className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500" 
-                           style={{ backgroundImage: `url('${item.image}')` }}>
+                    {!isOutOfStock && item.rawDto?.isFeatured && (
+                      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-amber-400 text-stone-950 font-black text-[8px] sm:text-[10px] uppercase rounded-md sm:rounded-lg shadow-md flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                        Nổi bật
                       </div>
-                      <div className="absolute bottom-3 right-3 px-3 py-1 bg-primary text-on-primary rounded-lg font-bold text-xs sm:text-label-md shadow-md">
+                    )}
+
+                    <Link to={`/product/${item.id}`} className="relative m-2 h-24 w-24 shrink-0 overflow-hidden rounded-xl block bg-surface-container-low sm:m-0 sm:h-64 sm:w-auto sm:rounded-none">
+                      <img
+                        src={getOptimizedImageUrl(item.image, 320)}
+                        srcSet={getResponsiveImageSources(item.image)}
+                        sizes="(max-width: 639px) 96px, (max-width: 1279px) 50vw, 33vw"
+                        alt={item.name}
+                        width={500}
+                        height={500}
+                        loading={index === 0 ? 'eager' : 'lazy'}
+                        fetchPriority={index === 0 ? 'high' : 'auto'}
+                        decoding={index === 0 ? 'sync' : 'async'}
+                        className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute bottom-1.5 right-1.5 sm:bottom-3 sm:right-3 px-1.5 sm:px-3 py-0.5 sm:py-1 bg-primary text-on-primary rounded-md sm:rounded-lg font-bold text-[10px] sm:text-label-md shadow-md">
                           {item.price.toLocaleString('vi-VN')}đ
                       </div>
                       {!isOutOfStock && (
-                        <div className="absolute top-3 left-3 px-2 py-0.5 bg-white/95 backdrop-blur-md shadow-xs rounded-md flex items-center gap-1">
-                          <span className="material-symbols-outlined text-amber-500 text-xs sm:text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                          <span className="text-[11px] sm:text-xs font-bold text-on-surface">{item.rating || 4.8}</span>
+                        <div className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-white/95 backdrop-blur-md shadow-xs rounded-md flex items-center gap-0.5 sm:gap-1">
+                          <span className="material-symbols-outlined text-amber-500 text-[10px] sm:text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          <span className="text-[9px] sm:text-xs font-bold text-on-surface">{item.rating || 4.8}</span>
                         </div>
                       )}
                     </Link>
-                    <div className="p-4 sm:p-stack-md flex-1 flex flex-col">
+                    <div className="min-w-0 p-2 sm:p-stack-md flex-1 flex flex-col">
                       <Link to={`/product/${item.id}`} className="block group-hover:opacity-80 transition-opacity">
-                        <h3 className={`text-base sm:text-lg font-bold mb-1 line-clamp-1 ${isOutOfStock ? 'text-on-surface/80 line-through' : 'text-on-surface'}`}>
+                        <h3 className={`text-sm sm:text-lg font-bold mb-0.5 sm:mb-1 line-clamp-1 ${isOutOfStock ? 'text-on-surface/80 line-through' : 'text-on-surface'}`}>
                           {item.name}
                         </h3>
-                        <p className="text-xs sm:text-sm text-on-surface-variant line-clamp-2 mb-4 leading-relaxed">
+                        <p className="hidden sm:block text-xs sm:text-sm text-on-surface-variant line-clamp-2 mb-4 leading-relaxed">
                             {item.description || 'Hương vị hảo hạng được pha chế tươi ngon mỗi ngày.'}
                         </p>
                       </Link>
-                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-surface-variant/40">
+                      <div className="flex items-center justify-between gap-2 mt-auto pt-1.5 sm:pt-2 border-t border-surface-variant/40">
                         {isOutOfStock ? (
-                          <span className="px-3.5 py-1.5 bg-red-50 text-red-600 rounded-full text-xs font-bold border border-red-200">
+                          <span className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-red-50 text-red-600 rounded-full text-[10px] sm:text-xs font-bold border border-red-200">
                             Tạm Hết Món
                           </span>
                         ) : (
-                          <Link to={`/product/${item.id}`} className="px-3.5 py-1.5 border-[1.5px] border-primary text-primary rounded-full text-xs font-bold hover:bg-primary/5 transition-colors">
+                          <Link to={`/product/${item.id}`} className="px-2.5 sm:px-3.5 py-1 sm:py-1.5 border-[1.5px] border-primary text-primary rounded-full text-[10px] sm:text-xs font-bold hover:bg-primary/5 transition-colors">
                             Tùy Chỉnh
                           </Link>
                         )}
 
                         <button 
                           disabled={isOutOfStock}
-                          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all ${
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all ${
                             isOutOfStock 
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
                             : 'bg-primary text-on-primary hover:bg-primary-container active:scale-90 shadow-sm'
@@ -265,7 +377,7 @@ export default function Menu() {
                           onClick={() => handleAddToCart(item.id, item.name, item.price, item.image)}
                           title={isOutOfStock ? 'Món này tạm hết tại chi nhánh' : 'Thêm nhanh vào giỏ'}
                         >
-                          <span className="material-symbols-outlined text-lg sm:text-xl">
+                          <span className="material-symbols-outlined text-base sm:text-xl">
                             {isOutOfStock ? 'block' : 'add'}
                           </span>
                         </button>
@@ -320,12 +432,10 @@ export default function Menu() {
 
 
       {/* Floating AI Sommelier Chat Widget */}
-      <AiSommelierChat mode="floating" />
+      <DeferredAiSommelierChat />
       
       <MobileBottomNav />
 
-      {/* Auth Modal */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }

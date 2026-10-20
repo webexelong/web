@@ -1,12 +1,16 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { useAuthStore } from '../store/authStore';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function StaffLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { orders, fetchOrders, initRealtime, currentStoreId } = useStore();
+  const { logout, user } = useAuthStore();
+  const currentStoreName = user?.storeName || user?.brandName || 'Cửa hàng hiện tại';
 
   // Initialize once on mount
   useEffect(() => {
@@ -23,7 +27,7 @@ export default function StaffLayout() {
   return (
     <div className="flex min-h-screen bg-background font-body-md text-on-surface">
       {/* TopAppBar */}
-      <header className="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-3 sm:px-6 h-14 sm:h-16 bg-surface/95 backdrop-blur-md dark:bg-inverse-surface shadow-xs border-b border-outline-variant/15">
+      <header className="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-3 sm:px-6 h-[104px] bg-surface/95 backdrop-blur-md dark:bg-inverse-surface shadow-xs border-b border-outline-variant/15">
         <div className="flex items-center gap-2 sm:gap-4">
           <button 
             className="md:hidden p-1.5 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors flex items-center justify-center" 
@@ -45,6 +49,9 @@ export default function StaffLayout() {
             <span className="material-symbols-outlined text-on-surface-variant text-lg">search</span>
             <input className="bg-transparent border-none focus:ring-0 text-xs text-on-surface-variant w-40 outline-none" placeholder="Tìm đơn hàng..." type="text" />
           </div>
+          
+          {/* Theme Toggle */}
+          <ThemeToggle />
           
           <button 
             onClick={() => navigate('/staff/orders')}
@@ -80,7 +87,7 @@ export default function StaffLayout() {
       )}
 
       {/* SideNavBar (Desktop & Mobile Drawer) */}
-      <aside className={`fixed left-0 top-0 bottom-0 md:top-14 sm:md:top-16 w-64 flex flex-col p-4 z-50 md:z-30 bg-surface md:bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant/15 transition-transform duration-300 shadow-2xl md:shadow-none ${
+      <aside className={`fixed left-0 top-0 bottom-0 md:top-[104px] w-64 flex flex-col p-4 z-50 md:z-30 bg-surface md:bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant/15 transition-transform duration-300 shadow-2xl md:shadow-none ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         <div className="flex flex-col items-center py-4 mb-2 border-b border-outline-variant/10 md:border-none cursor-pointer" onClick={() => { setIsMobileMenuOpen(false); navigate('/staff/dashboard'); }}>
@@ -88,7 +95,7 @@ export default function StaffLayout() {
             <span className="material-symbols-outlined text-on-primary-container text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>local_cafe</span>
           </div>
           <h2 className="text-sm font-black text-primary">CỔNG NHÂN VIÊN</h2>
-          <p className="text-[11px] text-on-surface-variant opacity-70">The Coffee House - Q1</p>
+          <p className="text-[11px] text-on-surface-variant opacity-70 truncate max-w-[190px]">{currentStoreName}</p>
         </div>
         
         <nav className="flex-1 space-y-1.5 overflow-y-auto py-2">
@@ -143,25 +150,6 @@ export default function StaffLayout() {
             <span>Bán Hàng Tại Quầy (POS)</span>
           </Link>
 
-          {/* Temporarily disabled - Coming soon */}
-          <div 
-            className="flex items-center gap-3 text-on-surface-variant/50 px-3.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
-            title="Tính năng đang phát triển"
-          >
-            <span className="material-symbols-outlined text-lg">inventory_2</span>
-            <span>Kho & Trạng Thái Món</span>
-            <span className="ml-auto text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Sớm</span>
-          </div>
-
-          {/* Temporarily disabled - Coming soon */}
-          <div 
-            className="flex items-center gap-3 text-on-surface-variant/50 px-3.5 py-2.5 rounded-xl text-xs font-bold cursor-not-allowed"
-            title="Tính năng đang phát triển"
-          >
-            <span className="material-symbols-outlined text-lg">analytics</span>
-            <span>Báo Cáo Doanh Thu</span>
-            <span className="ml-auto text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Sớm</span>
-          </div>
         </nav>
         
         <div className="pt-3 border-t border-outline-variant/15 mt-auto">
@@ -176,10 +164,7 @@ export default function StaffLayout() {
           <button 
             onClick={() => { 
               setIsMobileMenuOpen(false);
-              // Clear auth data
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              // Navigate to login
+              logout();
               navigate('/login');
             }} 
             className="w-full flex items-center gap-2.5 text-error px-3 py-2 hover:bg-error/10 rounded-xl transition-all text-xs font-bold text-left"
@@ -191,7 +176,7 @@ export default function StaffLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 mt-14 sm:mt-16 p-3 sm:p-6 md:p-8 overflow-y-auto max-w-full">
+      <main className="flex-1 md:ml-64 mt-[104px] p-3 sm:p-6 md:p-8 overflow-y-auto max-w-full">
         <Outlet />
       </main>
     </div>

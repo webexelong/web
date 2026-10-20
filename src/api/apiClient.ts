@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
 
 // Dynamic Base URL: Tự động nhận diện hostname (localhost hoặc IP mạng LAN/Hotspot)
 const getApiHost = () => {
@@ -8,8 +9,14 @@ const getApiHost = () => {
   return 'localhost';
 };
 
-export const API_BASE_URL = `http://${getApiHost()}:5277/api`;
-export const HUB_URL = `http://${getApiHost()}:5277/hubs/orders`;
+const isLocalDevelopment = ['localhost', '127.0.0.1'].includes(getApiHost());
+// In production, default to same-origin HTTPS behind the reverse proxy. Local
+// development continues to use the ASP.NET Core development port.
+const defaultBackendOrigin = isLocalDevelopment
+  ? `http://${getApiHost()}:5277`
+  : window.location.origin;
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `${defaultBackendOrigin}/api`;
+export const HUB_URL = import.meta.env.VITE_HUB_URL || `${defaultBackendOrigin}/hubs/orders`;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -41,20 +48,26 @@ apiClient.interceptors.response.use(
 
     // Xử lý lỗi 401 Unauthorized
     if (error.response?.status === 401) {
-      console.warn('Token hết hạn hoặc không hợp lệ. Chuyển về trang đăng nhập.');
+      console.warn('Phiên đăng nhập đã hết hạn hoặc không hợp lệ.');
 
-      // Chỉ xóa token và redirect nếu KHÔNG PHẢI là guest request
-      const isGuestRequest = !localStorage.getItem('token');
-      if (!isGuestRequest) {
+      // Đồng bộ dọn sạch toàn bộ trạng thái auth
+      try {
+        useAuthStore.getState().logout();
+      } catch {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('auth-storage');
+      }
 
-        // Auto redirect về login (chỉ cho staff/authenticated users)
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+      // Chỉ chuyển hướng về trang /login nếu đang ở các trang quản trị/nhân viên
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        const isAdminOrStaffPath = path.startsWith('/admin') || path.startsWith('/staff') || path.startsWith('/system-admin');
+        if (isAdminOrStaffPath && !path.includes('/login')) {
+          const loginPath = path.startsWith('/system-admin') ? '/system-admin/login' : '/login';
+          window.location.href = `${loginPath}?redirect=${encodeURIComponent(path)}`;
         }
       }
-      // Guest requests nhận 401 → Không làm gì, để component xử lý
     }
 
     // Xử lý lỗi 403 Forbidden

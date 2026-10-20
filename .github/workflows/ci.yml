@@ -1,42 +1,36 @@
-name: CI Build Check
+name: WebCafe CI
 
 on:
   push:
-    branches: [ main, Long, '**' ]
   pull_request:
-    branches: [ main, Long ]
 
 jobs:
-  check-frontend:
-    name: Check Frontend Build
+  build-and-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-
-      - name: Install Dependencies
+          cache: npm
+      - name: Restore backend
+        run: dotnet restore backend/WebCafe.Backend.csproj
+      - name: Build backend
+        run: dotnet build backend/WebCafe.Backend.csproj --no-restore --configuration Release
+      - name: Run backend tests
+        run: dotnet test backend.Tests/WebCafe.Backend.Tests.csproj --no-restore --configuration Release
+      - name: Install frontend dependencies
         run: npm ci
-
-      - name: Build Frontend & Typecheck
-        run: npm run build
-
-  check-backend:
-    name: Check Backend Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Restore & Build .NET Backend
-        run: dotnet build backend/WebCafe.Backend.csproj
+      - name: Typecheck frontend
+        run: npx tsc -b --pretty false
+      - name: Lint frontend
+        run: npm run lint
+      - name: Install EF Core CLI
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.0.9
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+      - name: Check migration model is synchronized
+        run: dotnet ef migrations has-pending-model-changes --project backend/WebCafe.Backend.csproj --startup-project backend/WebCafe.Backend.csproj --configuration Release

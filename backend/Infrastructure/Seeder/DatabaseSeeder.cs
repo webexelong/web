@@ -9,6 +9,85 @@ namespace WebCafe.Backend.Infrastructure.Seeder
     {
         public static async Task SeedAsync(WebCafeDbContext db)
         {
+            if (!await db.SubscriptionPlans.AnyAsync())
+            {
+                db.SubscriptionPlans.AddRange(
+                    new SubscriptionPlan { Code = "basic", Name = "Basic", MonthlyPrice = 239000, MaxStores = 1, MaxStaff = 5, MaxTablesPerStore = 20 },
+                    new SubscriptionPlan { Code = "premium", Name = "Premium", MonthlyPrice = 1299000, MaxStores = 5, MaxStaff = 20, MaxTablesPerStore = 50 },
+                    new SubscriptionPlan { Code = "pro", Name = "Pro", MonthlyPrice = 1999000, MaxStores = 10, MaxStaff = 50, MaxTablesPerStore = 100 });
+                await db.SaveChangesAsync();
+            }
+
+            var seededPlans = await db.SubscriptionPlans.ToListAsync();
+            // Chuẩn hóa các giá trị legacy một lần; các mức giá đã được admin
+            // tùy chỉnh khác các giá trị cũ sẽ được giữ nguyên.
+            foreach (var plan in seededPlans)
+            {
+                if (plan.Code == "basic" && (plan.MonthlyPrice == 0 || plan.MonthlyPrice == 290000)) plan.MonthlyPrice = 239000;
+                if (plan.Code == "premium" && (plan.MonthlyPrice == 499000 || plan.MonthlyPrice == 1500000)) plan.MonthlyPrice = 1299000;
+                if (plan.Code == "pro" && plan.MonthlyPrice == 999000) plan.MonthlyPrice = 1999000;
+                plan.Name = plan.Code switch { "basic" => "Basic", "premium" => "Premium", "pro" => "Pro", _ => plan.Name };
+            }
+            var featureCodes = new[] { "inventory", "inventory_bom", "inventory_ai", "advanced_analytics", "multi_store", "centralized_reports" };
+            var hasPlanFeatures = await db.SubscriptionPlanFeatures.AnyAsync();
+            foreach (var plan in seededPlans)
+            {
+                if (!hasPlanFeatures)
+                {
+                    if (plan.Code == "basic") { plan.MaxStores = 1; plan.MaxStaff = 5; plan.MaxTablesPerStore = 20; }
+                    if (plan.Code == "premium") { plan.MaxStores = 5; plan.MaxStaff = 20; plan.MaxTablesPerStore = 50; }
+                    if (plan.Code == "pro") { plan.MaxStores = 10; plan.MaxStaff = 50; plan.MaxTablesPerStore = 100; }
+                }
+                var enabled = plan.Code switch
+                {
+                    "basic" => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    "premium" => new HashSet<string>(new[] { "inventory", "inventory_bom", "inventory_ai", "advanced_analytics" }, StringComparer.OrdinalIgnoreCase),
+                    _ => new HashSet<string>(featureCodes, StringComparer.OrdinalIgnoreCase)
+                };
+                var existing = await db.SubscriptionPlanFeatures.Where(f => f.PlanId == plan.PlanId).ToListAsync();
+                foreach (var code in featureCodes)
+                {
+                    var feature = existing.FirstOrDefault(f => f.FeatureCode == code);
+                    if (feature == null) db.SubscriptionPlanFeatures.Add(new SubscriptionPlanFeature { PlanId = plan.PlanId, FeatureCode = code, IsEnabled = enabled.Contains(code) });
+                    else feature.IsEnabled = enabled.Contains(code);
+                }
+            }
+            await db.SaveChangesAsync();
+
+            // Backfill the subscription link for tenants created before the
+            // subscription tables were introduced. Their legacy Tenant.Plan
+            // value remains the source for the initial plan assignment.
+            var legacyTenants = await db.Tenants.ToListAsync();
+            foreach (var legacyTenant in legacyTenants)
+            {
+                var planCode = string.IsNullOrWhiteSpace(legacyTenant.Plan) ? "basic" : legacyTenant.Plan.Trim().ToLowerInvariant();
+                var matchingPlan = seededPlans.FirstOrDefault(p => p.Code == planCode)
+                    ?? seededPlans.FirstOrDefault(p => p.Code == "basic");
+                if (matchingPlan == null) continue;
+
+                var subscription = await db.TenantSubscriptions
+                    .Where(s => s.TenantId == legacyTenant.TenantId)
+                    .OrderByDescending(s => s.CreatedAt)
+                    .FirstOrDefaultAsync();
+                if (subscription == null)
+                {
+                    db.TenantSubscriptions.Add(new TenantSubscription
+                    {
+                        TenantId = legacyTenant.TenantId,
+                        PlanId = matchingPlan.PlanId,
+                        Status = "active",
+                        StartsAt = legacyTenant.CreatedAt,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                else if (subscription.PlanId <= 0)
+                {
+                    subscription.PlanId = matchingPlan.PlanId;
+                    if (subscription.Status is "cancelled" or "suspended") subscription.Status = "active";
+                }
+            }
+            await db.SaveChangesAsync();
+
             // 1. Seed SuperAdmin
             if (!await db.SystemAdmins.AnyAsync())
             {
@@ -22,6 +101,39 @@ namespace WebCafe.Backend.Infrastructure.Seeder
                 });
                 await db.SaveChangesAsync();
             }
+
+            // Upgrade tenants created by the earlier trial flow. They used to receive
+            // one "Món mẫu" category; keep their sample items and expose the same
+            // five categories as the main demo tenant.
+            var legacyTrialCategories = await db.Categories
+                .Where(c => c.Name == "Món mẫu")
+                .ToListAsync();
+            foreach (var legacyCategory in legacyTrialCategories)
+            {
+                var tenantCategories = await db.Categories
+                    .Where(c => c.TenantId == legacyCategory.TenantId)
+                    .ToListAsync();
+                var definitions = new[]
+                {
+                    (Name: "Cà Phê Pha Máy", Icon: "coffee", SortOrder: 1),
+                    (Name: "Trà & Trái Cây", Icon: "energy_savings_leaf", SortOrder: 2),
+                    (Name: "Sinh Tố & Trà Sữa", Icon: "bubble_chart", SortOrder: 3),
+                    (Name: "Bánh Ngọt", Icon: "bakery_dining", SortOrder: 4),
+                    (Name: "Quà Lưu Niệm", Icon: "local_mall", SortOrder: 5)
+                };
+                foreach (var definition in definitions)
+                {
+                    if (!tenantCategories.Any(c => c.Name == definition.Name))
+                        db.Categories.Add(new Category { TenantId = legacyCategory.TenantId, Name = definition.Name, Icon = definition.Icon, SortOrder = definition.SortOrder, IsActive = true });
+                }
+                await db.SaveChangesAsync();
+                var coffee = await db.Categories.FirstAsync(c => c.TenantId == legacyCategory.TenantId && c.Name == "Cà Phê Pha Máy");
+                var tea = await db.Categories.FirstAsync(c => c.TenantId == legacyCategory.TenantId && c.Name == "Trà & Trái Cây");
+                var sampleItems = await db.MenuItems.Where(m => m.TenantId == legacyCategory.TenantId && m.CategoryId == legacyCategory.CategoryId).ToListAsync();
+                foreach (var item in sampleItems) item.CategoryId = item.Name.Contains("Trà", StringComparison.OrdinalIgnoreCase) ? tea.CategoryId : coffee.CategoryId;
+                db.Categories.Remove(legacyCategory);
+            }
+            if (legacyTrialCategories.Count > 0) await db.SaveChangesAsync();
 
             var tenant = await db.Tenants.FirstOrDefaultAsync();
             if (tenant == null)
@@ -482,6 +594,116 @@ namespace WebCafe.Backend.Infrastructure.Seeder
                     await db.SaveChangesAsync();
                 }
             }
+
+            // Public demo tenant: isolated from real customer data and safe to reset.
+            var demoTenant = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == "aismartserve-demo");
+            if (demoTenant == null)
+            {
+                demoTenant = new Tenant
+                {
+                    Name = "AI-SMARTSERVE Demo",
+                    Slug = "aismartserve-demo",
+                    OwnerName = "Demo Chủ quán",
+                    OwnerPhone = "0000000000",
+                    OwnerEmail = "demo@ai-smartserve.local",
+                    OwnerPasswordHash = SecurityHelper.HashPassword(Guid.NewGuid().ToString()),
+                    Plan = "pro",
+                    MaxStores = 1,
+                    IsActive = true
+                };
+                db.Tenants.Add(demoTenant);
+                await db.SaveChangesAsync();
+            }
+
+            var demoStore = await db.Stores.FirstOrDefaultAsync(s => s.TenantId == demoTenant.TenantId);
+            if (demoStore == null)
+            {
+                demoStore = new Store { TenantId = demoTenant.TenantId, Name = "AI-SMARTSERVE Demo", Address = "Không gian trải nghiệm", IsActive = true };
+                db.Stores.Add(demoStore);
+                await db.SaveChangesAsync();
+            }
+            if (!await db.Tables.AnyAsync(t => t.StoreId == demoStore.StoreId))
+            {
+                db.Tables.Add(new Table { StoreId = demoStore.StoreId, TableNumber = "D01", Capacity = 4, Status = "Available", IsActive = true });
+                await db.SaveChangesAsync();
+            }
+            if (!await db.Categories.AnyAsync(c => c.TenantId == demoTenant.TenantId))
+            {
+                var demoCategory = new Category { TenantId = demoTenant.TenantId, Name = "Món Demo", Icon = "coffee", SortOrder = 1, IsActive = true };
+                db.Categories.Add(demoCategory);
+                await db.SaveChangesAsync();
+                db.MenuItems.AddRange(
+                    new MenuItem { TenantId = demoTenant.TenantId, CategoryId = demoCategory.CategoryId, Name = "Cà phê sữa", BasePrice = 35000, Description = "Món demo trải nghiệm", IsAvailable = true, IsFeatured = true },
+                    new MenuItem { TenantId = demoTenant.TenantId, CategoryId = demoCategory.CategoryId, Name = "Trà đào cam sả", BasePrice = 45000, Description = "Món demo trải nghiệm", IsAvailable = true },
+                    new MenuItem { TenantId = demoTenant.TenantId, CategoryId = demoCategory.CategoryId, Name = "Bánh ngọt", BasePrice = 30000, Description = "Món demo trải nghiệm", IsAvailable = true }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // Enrich the isolated demo store without replacing customer demo data.
+            var demoTableNumbers = new[] { "D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08" };
+            var currentDemoTables = await db.Tables.Where(t => t.StoreId == demoStore.StoreId).Select(t => t.TableNumber).ToListAsync();
+            foreach (var number in demoTableNumbers.Where(n => !currentDemoTables.Contains(n)))
+                db.Tables.Add(new Table { StoreId = demoStore.StoreId, TableNumber = number, Capacity = number is "D01" or "D02" ? 2 : 4, Status = "Available", IsActive = true });
+            await db.SaveChangesAsync();
+
+            var demoCategories = new (string Name, string Icon)[]
+            {
+                ("Cà Phê Pha Máy", "coffee"), ("Trà & Trái Cây", "eco"),
+                ("Sinh Tố & Trà Sữa", "bubble_chart"), ("Bánh Ngọt", "bakery_dining")
+            };
+            var existingDemoCategories = await db.Categories.Where(c => c.TenantId == demoTenant.TenantId).ToListAsync();
+            foreach (var (name, icon) in demoCategories)
+            {
+                if (existingDemoCategories.All(c => c.Name != name))
+                {
+                    var category = new Category { TenantId = demoTenant.TenantId, Name = name, Icon = icon, SortOrder = existingDemoCategories.Count + 1, IsActive = true };
+                    db.Categories.Add(category);
+                    existingDemoCategories.Add(category);
+                }
+            }
+            await db.SaveChangesAsync();
+
+            var demoMenu = new (string Category, string Name, decimal Price, bool Featured)[]
+            {
+                ("Cà Phê Pha Máy", "Espresso", 35000, false),
+                ("Cà Phê Pha Máy", "Caramel Cloud Macchiato", 57500, true),
+                ("Cà Phê Pha Máy", "Classic Flat White", 45000, false),
+                ("Trà & Trái Cây", "Trà vải lài", 42000, true),
+                ("Trà & Trái Cây", "Trà chanh dây", 39000, false),
+                ("Trà & Trái Cây", "Trà ô long đào", 45000, false),
+                ("Sinh Tố & Trà Sữa", "Trà sữa trân châu", 49000, true),
+                ("Sinh Tố & Trà Sữa", "Sinh tố xoài", 52000, false),
+                ("Sinh Tố & Trà Sữa", "Matcha Latte", 52000, false),
+                ("Bánh Ngọt", "Croissant bơ", 32000, false),
+                ("Bánh Ngọt", "Tiramisu", 48000, true),
+                ("Bánh Ngọt", "Bánh phô mai", 45000, false)
+            };
+            var currentDemoMenu = await db.MenuItems.Where(m => m.TenantId == demoTenant.TenantId).Select(m => m.Name).ToListAsync();
+            foreach (var (categoryName, name, price, featured) in demoMenu.Where(m => !currentDemoMenu.Contains(m.Name)))
+                db.MenuItems.Add(new MenuItem { TenantId = demoTenant.TenantId, CategoryId = existingDemoCategories.First(c => c.Name == categoryName).CategoryId, Name = name, BasePrice = price, Description = "Món mẫu để trải nghiệm hệ thống", IsAvailable = true, IsFeatured = featured });
+            await db.SaveChangesAsync();
+
+            var demoIngredients = new (string Name, string Unit, decimal Minimum, decimal Current)[]
+            {
+                ("Cà phê Arabica", "kg", 2m, 1.4m), ("Trà Ô Long", "kg", 1m, 0.7m),
+                ("Sữa tươi", "lít", 8m, 12m), ("Sữa đặc", "hộp", 10m, 16m),
+                ("Đường", "kg", 5m, 9m), ("Đào ngâm", "hộp", 6m, 10m),
+                ("Trân châu", "kg", 3m, 5m), ("Ly giấy", "cái", 50m, 120m)
+            };
+            foreach (var (name, unit, minimum, current) in demoIngredients)
+            {
+                var ingredient = await db.Ingredients.FirstOrDefaultAsync(i => i.TenantId == demoTenant.TenantId && i.Name == name);
+                if (ingredient == null)
+                {
+                    ingredient = new Ingredient { TenantId = demoTenant.TenantId, Name = name, Unit = unit, MinimumStock = minimum };
+                    db.Ingredients.Add(ingredient);
+                    await db.SaveChangesAsync();
+                }
+                if (!await db.InventoryStocks.AnyAsync(s => s.StoreId == demoStore.StoreId && s.IngredientId == ingredient.IngredientId))
+                    db.InventoryStocks.Add(new InventoryStock { StoreId = demoStore.StoreId, IngredientId = ingredient.IngredientId, CurrentQuantity = current, LastUpdated = DateTime.UtcNow });
+            }
+            await db.SaveChangesAsync();
         }
     }
 }

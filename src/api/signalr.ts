@@ -1,4 +1,4 @@
-﻿import * as signalR from '@microsoft/signalr';
+import * as signalR from '@microsoft/signalr';
 import { HUB_URL } from './apiClient';
 import type { OrderDto } from '../types/apiTypes';
 
@@ -51,9 +51,38 @@ class SignalRService {
     }
   }
 
+  public async joinOrderGroup(orderId: number) {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('JoinOrderGroup', orderId);
+        console.log(`✅ Guest joined order group: ${orderId}`);
+      } catch (err) {
+        console.error('❌ Failed to join order group:', err);
+      }
+    }
+  }
+
+  public async leaveOrderGroup(orderId: number) {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('LeaveOrderGroup', orderId);
+        console.log(`✅ Left order group: ${orderId}`);
+      } catch (err) {
+        console.error('❌ Failed to leave order group:', err);
+      }
+    }
+  }
+
   public onNewOrder(callback: (order: OrderDto) => void) {
     if (this.connection) {
       this.connection.on('NewOrderReceived', callback);
+    }
+  }
+
+  public offNewOrder(callback?: (...args: any[]) => void) {
+    if (this.connection) {
+      if (callback) this.connection.off('NewOrderReceived', callback);
+      else this.connection.off('NewOrderReceived');
     }
   }
 
@@ -63,9 +92,42 @@ class SignalRService {
     }
   }
 
+  public offOrderStatusChanged(callback?: (...args: any[]) => void) {
+    if (this.connection) {
+      if (callback) this.connection.off('OrderStatusChanged', callback);
+      else this.connection.off('OrderStatusChanged');
+    }
+  }
+
   public onTableStatusChanged(callback: (tableId: number, status: string) => void) {
     if (this.connection) {
       this.connection.on('TableStatusChanged', callback);
+      this.connection.on('tablestatuschanged', callback);
+    }
+  }
+
+  public offTableStatusChanged(callback?: (...args: any[]) => void) {
+    if (this.connection) {
+      if (callback) {
+        this.connection.off('TableStatusChanged', callback);
+        this.connection.off('tablestatuschanged', callback);
+      } else {
+        this.connection.off('TableStatusChanged');
+        this.connection.off('tablestatuschanged');
+      }
+    }
+  }
+
+  public onOrderReady(callback: (orderId: number, orderCode: string, message: string) => void) {
+    if (this.connection) {
+      this.connection.on('OrderReady', callback);
+    }
+  }
+
+  public offOrderReady(callback?: (...args: any[]) => void) {
+    if (this.connection) {
+      if (callback) this.connection.off('OrderReady', callback);
+      else this.connection.off('OrderReady');
     }
   }
 

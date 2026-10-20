@@ -1,6 +1,7 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import Pagination from '../../components/Pagination';
+import { useNotification } from '../../components/NotificationProvider';
 
 interface Category {
   categoryId: number;
@@ -8,6 +9,13 @@ interface Category {
   icon?: string;
   sortOrder: number;
   isActive: boolean;
+}
+
+interface MenuItemSize {
+  sizeId?: number;
+  name?: string;
+  sizeName?: string;
+  extraPrice: number;
 }
 
 interface MenuItem {
@@ -23,9 +31,11 @@ interface MenuItem {
   isAvailable: boolean;
   sortOrder: number;
   createdAt: string;
+  sizes?: Array<{ sizeId: number; name: string; extraPrice: number }>;
 }
 
 export default function MenuManagement() {
+  const { confirm } = useNotification();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +59,7 @@ export default function MenuManagement() {
     isAvailable: true,
     isFeatured: false,
     sortOrder: 0,
+    customSizes: [] as Array<{ sizeId?: number; sizeName: string; extraPrice: number }>,
   });
 
   const [categoryForm, setCategoryForm] = useState({
@@ -92,7 +103,17 @@ export default function MenuManagement() {
     e.preventDefault();
     try {
       setError('');
-      await apiClient.post('/menu/items', formData);
+      const payload = {
+        ...formData,
+        customSizes: formData.customSizes
+          .filter(s => s.sizeName.trim().length > 0)
+          .map(s => ({
+            sizeId: s.sizeId,
+            sizeName: s.sizeName.trim(),
+            extraPrice: Number(s.extraPrice) || 0,
+          })),
+      };
+      await apiClient.post('/menu/items', payload);
       setShowAddModal(false);
       loadData();
       resetForm();
@@ -107,7 +128,17 @@ export default function MenuManagement() {
     
     try {
       setError('');
-      await apiClient.put(`/menu/items/${editingItem.menuItemId}`, formData);
+      const payload = {
+        ...formData,
+        customSizes: formData.customSizes
+          .filter(s => s.sizeName.trim().length > 0)
+          .map(s => ({
+            sizeId: s.sizeId,
+            sizeName: s.sizeName.trim(),
+            extraPrice: Number(s.extraPrice) || 0,
+          })),
+      };
+      await apiClient.put(`/menu/items/${editingItem.menuItemId}`, payload);
       setShowEditModal(false);
       setEditingItem(null);
       loadData();
@@ -118,8 +149,7 @@ export default function MenuManagement() {
   };
 
   const handleDeleteItem = async (itemId: number) => {
-    if (!confirm('Bạn có chắc muốn xóa món này?')) return;
-    
+    confirm({ tone: 'warning', title: 'Xóa món?', message: 'Bạn có chắc muốn xóa món này? Thao tác này không thể hoàn tác.', confirmText: 'Xóa món', onConfirm: async () => {
     try {
       setError('');
       await apiClient.delete(`/menu/items/${itemId}`);
@@ -127,6 +157,7 @@ export default function MenuManagement() {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Xóa món thất bại');
     }
+    }});
   };
 
   const handleAddCategory = async (e: React.FormEvent) => {
@@ -142,6 +173,49 @@ export default function MenuManagement() {
     }
   };
 
+  const handleAddSizeOption = () => {
+    setFormData(prev => ({
+      ...prev,
+      customSizes: [...prev.customSizes, { sizeName: '', extraPrice: 0 }],
+    }));
+  };
+
+  const handleApplyPresetSizes = (preset: 'ml' | 'sml') => {
+    if (preset === 'ml') {
+      setFormData(prev => ({
+        ...prev,
+        customSizes: [
+          { sizeName: 'Medium', extraPrice: 0 },
+          { sizeName: 'Large', extraPrice: 15000 },
+        ],
+      }));
+    } else if (preset === 'sml') {
+      setFormData(prev => ({
+        ...prev,
+        customSizes: [
+          { sizeName: 'Nhỏ (S)', extraPrice: 0 },
+          { sizeName: 'Vừa (M)', extraPrice: 10000 },
+          { sizeName: 'Lớn (L)', extraPrice: 15000 },
+        ],
+      }));
+    }
+  };
+
+  const handleUpdateSizeOption = (index: number, field: 'sizeName' | 'extraPrice', value: any) => {
+    setFormData(prev => {
+      const updated = [...prev.customSizes];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, customSizes: updated };
+    });
+  };
+
+  const handleRemoveSizeOption = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      customSizes: prev.customSizes.filter((_, i) => i !== index),
+    }));
+  };
+
   const openEditModal = (item: MenuItem) => {
     setEditingItem(item);
     setFormData({
@@ -153,6 +227,11 @@ export default function MenuManagement() {
       isAvailable: item.isAvailable,
       isFeatured: item.isFeatured,
       sortOrder: item.sortOrder,
+      customSizes: (item.sizes || []).map(s => ({
+        sizeId: s.sizeId,
+        sizeName: s.name,
+        extraPrice: s.extraPrice,
+      })),
     });
     setShowEditModal(true);
   };
@@ -167,13 +246,118 @@ export default function MenuManagement() {
       isAvailable: true,
       isFeatured: false,
       sortOrder: 0,
+      customSizes: [],
     });
   };
+
+  const renderSizeOptionsSection = () => (
+    <div className="border border-outline-variant/50 rounded-2xl p-4 bg-surface-container-low/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <div>
+          <label className="block text-sm font-bold text-on-surface">
+            Tùy chọn Kích cỡ & Upsize
+          </label>
+          <p className="text-xs text-on-surface-variant">
+            Thiết lập các cỡ (Medium, Large...) và tiền phụ thu khi khách chọn upsize. Để trống nếu món không có size.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] text-on-surface-variant font-medium">Mẫu nhanh:</span>
+          <button
+            type="button"
+            onClick={() => handleApplyPresetSizes('ml')}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-secondary-container/60 hover:bg-secondary-container text-secondary transition-colors"
+          >
+            M (+0đ) / L (+15k)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleApplyPresetSizes('sml')}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-secondary-container/60 hover:bg-secondary-container text-secondary transition-colors"
+          >
+            S / M / L
+          </button>
+        </div>
+      </div>
+
+      {formData.customSizes.length === 0 ? (
+        <div className="text-center py-4 border border-dashed border-outline-variant/60 rounded-xl bg-surface-container-lowest text-xs text-on-surface-variant">
+          Món này hiện chưa có kích cỡ riêng (bán theo giá gốc).
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={handleAddSizeOption}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-bold hover:bg-primary/20 text-xs transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              Thêm kích cỡ đầu tiên
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {formData.customSizes.map((size, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-surface-container-lowest p-2 rounded-xl border border-outline-variant/30">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Tên kích cỡ (VD: Vừa, Lớn, Size L)"
+                  value={size.sizeName}
+                  onChange={(e) => handleUpdateSizeOption(idx, 'sizeName', e.target.value)}
+                  className="w-full px-3 py-1.5 text-sm border border-outline-variant/50 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
+                  required
+                />
+              </div>
+              <div className="w-36 flex items-center gap-1">
+                <span className="text-xs text-on-surface-variant whitespace-nowrap">+</span>
+                <input
+                  type="number"
+                  placeholder="0"
+                  min="0"
+                  step="1000"
+                  value={size.extraPrice}
+                  onChange={(e) => handleUpdateSizeOption(idx, 'extraPrice', Number(e.target.value) || 0)}
+                  className="w-full px-3 py-1.5 text-sm border border-outline-variant/50 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+                <span className="text-xs text-on-surface-variant">đ</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemoveSizeOption(idx)}
+                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Xóa kích cỡ này"
+              >
+                <span className="material-symbols-outlined text-base">delete</span>
+              </button>
+            </div>
+          ))}
+
+          <div className="flex justify-between items-center pt-2">
+            <button
+              type="button"
+              onClick={handleAddSizeOption}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            >
+              <span className="material-symbols-outlined text-sm">add_circle</span>
+              Thêm kích cỡ khác
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, customSizes: [] }))}
+              className="text-xs text-on-surface-variant hover:text-red-600 transition-colors"
+            >
+              Xóa tất cả kích cỡ
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   if (loading) {
     return (
       <div className="pt-24 pb-12 px-gutter">
-        <div className="max-w-6xl mx-auto text-center">
+        <div className="w-full max-w-[1600px] mx-auto text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-on-surface-variant">Đang tải thực đơn...</p>
         </div>
@@ -183,7 +367,7 @@ export default function MenuManagement() {
 
   return (
     <div className="pt-24 pb-12 px-gutter animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full max-w-[1600px] mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-stack-lg gap-4">
           <div>
@@ -248,7 +432,7 @@ export default function MenuManagement() {
                   : 'bg-surface-container text-on-surface-variant hover:bg-secondary-container/50'
               }`}
             >
-              {cat.icon && <span className="mr-1">{cat.icon}</span>}
+              {cat.icon && <span className="material-symbols-outlined align-middle mr-1 text-base">{cat.icon}</span>}
               {cat.name} ({menuItems.filter(i => i.categoryId === cat.categoryId).length})
             </button>
           ))}
@@ -257,7 +441,7 @@ export default function MenuManagement() {
         {/* Menu Table */}
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_4px_20px_rgba(85,55,34,0.06)] border border-outline-variant/30 overflow-hidden flex flex-col justify-between">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[980px] text-left border-collapse">
               <thead className="bg-surface-container-low">
                 <tr>
                   <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs">Món</th>
@@ -288,10 +472,22 @@ export default function MenuManagement() {
                               alt={item.name} 
                             />
                             <div>
-                              <p className="font-label-md text-on-surface font-bold">{item.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-label-md text-on-surface font-bold">{item.name}</p>
+                                {item.isFeatured && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800"><span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>Nổi bật</span>}
+                              </div>
                               <p className="text-xs text-on-surface-variant line-clamp-1">
                                 {item.description || 'Không có mô tả'}
                               </p>
+                              {item.sizes && item.sizes.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {item.sizes.map((s, idx) => (
+                                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-secondary-container/50 text-secondary border border-secondary/20 font-medium">
+                                      {s.name}: +{s.extraPrice.toLocaleString('vi-VN')}đ
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -431,6 +627,8 @@ export default function MenuManagement() {
                 />
               </div>
 
+              {renderSizeOptionsSection()}
+
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -552,6 +750,8 @@ export default function MenuManagement() {
                 />
               </div>
 
+              {renderSizeOptionsSection()}
+
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -671,7 +871,7 @@ export default function MenuManagement() {
                   {categories.map(cat => (
                     <div key={cat.categoryId} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                       <span className="text-sm font-medium">
-                        {cat.icon} {cat.name}
+                        <span className="material-symbols-outlined align-middle mr-1 text-base">{cat.icon || 'category'}</span>{cat.name}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'

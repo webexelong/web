@@ -557,6 +557,257 @@ Hãy trả về JSON theo cấu trúc chính xác sau:
             return GenerateFallbackChatResponse(request, availableMenuItems, "Hệ thống AI đang bận");
         }
 
+        public async Task<InventoryAiChatResponseDto> ChatWithInventoryAsync(InventoryAiChatRequestDto request)
+        {
+            try
+            {
+            var since = DateTime.UtcNow.AddDays(-Math.Clamp(request.PeriodDays, 7, 90));
+            var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.StoreId == request.StoreId);
+            if (store == null) throw new KeyNotFoundException("Không tìm thấy cửa hàng.");
+
+            var sales = await _db.OrderItems.AsNoTracking()
+                .Where(i => i.Order != null && i.Order.StoreId == request.StoreId && i.Order.CreatedAt >= since && i.Order.Status != "cancelled")
+                .GroupBy(i => new { i.MenuItemId, Name = i.MenuItem!.Name })
+                .Select(g => new { g.Key.MenuItemId, g.Key.Name, Quantity = g.Sum(x => x.Quantity) })
+                .OrderByDescending(x => x.Quantity).Take(10).ToListAsync();
+
+            var dailySales = await _db.OrderItems.AsNoTracking()
+                .Where(i => i.Order != null && i.Order.StoreId == request.StoreId && i.Order.CreatedAt >= since && i.Order.Status != "cancelled")
+                .GroupBy(i => i.Order!.CreatedAt.Date)
+                .Select(g => new { Date = g.Key, Quantity = g.Sum(x => x.Quantity) })
+                .OrderBy(x => x.Date)
+                .ToListAsync();
+
+            var stocks = await _db.InventoryStocks.AsNoTracking()
+                .Where(s => s.StoreId == request.StoreId)
+                .Select(s => new { s.IngredientId, Name = s.Ingredient!.Name, s.Ingredient.Unit, s.Ingredient.MinimumStock, s.CurrentQuantity })
+                .ToListAsync();
+            var topMenuItemIds = sales.Select(x => x.MenuItemId).Distinct().ToArray();
+            var recipes = await _db.MenuItemRecipes.AsNoTracking()
+                .Where(r => r.MenuItem != null && r.MenuItem.TenantId == store.TenantId && topMenuItemIds.Contains(r.MenuItemId))
+                .Select(r => new { r.MenuItemId, IngredientName = r.Ingredient!.Name, Unit = r.Ingredient.Unit, r.QuantityRequired })
+                .ToListAsync();
+
+            var inventoryMovements = await _db.InventoryTransactions.AsNoTracking()
+                .Where(t => t.Stock != null && t.Stock.StoreId == request.StoreId && t.CreatedAt >= since)
+                .GroupBy(t => t.Type)
+                .Select(g => new { Type = g.Key, Quantity = g.Sum(x => x.Quantity), Count = g.Count() })
+                .ToListAsync();
+
+            var fallback = BuildInventoryFallback(store.Name, request.PeriodDays, sales, stocks, recipes);
+            var apiKey = _config["GeminiAI:ApiKey"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("YOUR_GEMINI_API_KEY", StringComparison.OrdinalIgnoreCase)) return fallback;
+            try
+            {
+                var primaryModel = _config["GeminiAI:InventoryModel"] ?? _config["GeminiAI:Model"] ?? "gemini-3.5-flash";
+                if (primaryModel == "gemini-3.5-flash-lite") primaryModel = "gemini-3.5-flash";
+                var backupModel = primaryModel == "gemini-3.5-flash" ? "gemini-3.6-flash" : "gemini-3.5-flash";
+
+                var context = JsonSerializer.Serialize(new
+                {
+                    store = store.Name,
+                    periodDays = request.PeriodDays,
+                    topProducts = sales,
+                    dailySales,
+                    stock = stocks,
+                    recipes,
+                    inventoryMovements
+                });
+                var systemInstruction = $"Bạn là chuyên gia trợ lý quản lý kho và chuỗi cung ứng của WebCafe cho cửa hàng {store.Name}.\n" +
+                    $"DỮ LIỆU HIỆN TẠI TỪ HỆ THỐNG:\n{context}\n\n" +
+                    "QUY TẮC BẮT BUỘC:\n" +
+                    "1. Trả lời ngắn gọn, đi thẳng vào quyết định nhập hàng; tối đa 4 câu, không lặp lại toàn bộ dữ liệu.\n" +
+                    "2. Phân tích chính xác theo dữ liệu hiện tại: tồn kho, mức tối thiểu, doanh số theo ngày, BOM và biến động nhập/xuất.\n" +
+                    "3. Chỉ đề xuất nguyên liệu có trong stock hoặc recipes. Không bịa tên, số lượng hay doanh số. Nếu thiếu dữ liệu, nói rõ thiếu dữ liệu nào.\n" +
+                    "4. Khi được hỏi nguyên liệu cần nhập, luôn nêu tên, tồn hiện tại, số lượng nên nhập, mức ưu tiên và lý do ngắn gọn.\n" +
+                    "5. BẮT BUỘC trả về JSON thuần túy theo schema sau, không kèm markdown hay text ngoài JSON:\n" +
+                    "{\n" +
+                    "  \"reply\": \"Tư vấn ngắn gọn, trực tiếp bằng tiếng Việt\",\n" +
+                    "  \"recommendations\": [\n" +
+                    "    {\n" +
+                    "      \"ingredientName\": \"Tên nguyên liệu\",\n" +
+                    "      \"suggestedQuantity\": 2.5,\n" +
+                    "      \"unit\": \"kg\",\n" +
+                    "      \"priority\": \"high\",\n" +
+                    "      \"reason\": \"Lý do đề xuất cụ thể\"\n" +
+                    "    }\n" +
+                    "  ],\n" +
+                    "  \"quickFollowUps\": [\"Câu hỏi gợi ý 1\", \"Câu hỏi gợi ý 2\", \"Câu hỏi gợi ý 3\"]\n" +
+                    "}";
+
+                var contentsList = new List<object>();
+                if (request.History != null && request.History.Any())
+                {
+                    foreach (var h in request.History.TakeLast(6))
+                    {
+                        if (string.IsNullOrWhiteSpace(h.Content)) continue;
+                        var role = h.Role?.ToLower() is "model" or "assistant" ? "model" : "user";
+                        contentsList.Add(new { role, parts = new[] { new { text = h.Content } } });
+                    }
+                }
+
+                contentsList.Add(new
+                {
+                    role = "user",
+                    parts = new[] { new { text = $"{systemInstruction}\n\n[CÂU HỎI MỚI NHẤT CỦA QUẢN LÝ]:\n\"{request.Message}\"" } }
+                });
+
+                var parsed = await CallGeminiForInventoryAsync(apiKey, primaryModel, contentsList);
+                if (parsed == null)
+                {
+                    _logger.LogInformation("Thử lại Inventory AI với Backup Model {BackupModel}", backupModel);
+                    parsed = await CallGeminiForInventoryAsync(apiKey, backupModel, contentsList);
+                }
+
+                if (parsed != null)
+                {
+                    parsed.IsAiGenerated = true;
+                    parsed.StoreName = store.Name;
+                    parsed.PeriodDays = request.PeriodDays;
+                    parsed.TopSellingItems = sales.Select(x => new InventoryAiTopProductDto { MenuItemId = x.MenuItemId, MenuItemName = x.Name, SoldQuantity = x.Quantity }).ToList();
+                    parsed.Recommendations = MergeInventoryRecommendations(fallback.Recommendations, parsed.Recommendations);
+                    if (fallback.Recommendations.Count > 0 && !parsed.Reply.Contains("thiếu", StringComparison.OrdinalIgnoreCase))
+                        parsed.Reply = $"{fallback.Reply} {parsed.Reply}";
+                    return parsed;
+                }
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Inventory AI unavailable; using statistical fallback."); }
+            return fallback;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Inventory AI data preparation failed.");
+                return new InventoryAiChatResponseDto
+                {
+                    IsAiGenerated = false,
+                    PeriodDays = request.PeriodDays,
+                    Reply = "Không thể đọc dữ liệu kho lúc này. Vui lòng thử lại sau.",
+                    QuickFollowUps = new() { "Nguyên liệu nào sắp hết?", "Món nào bán chạy nhất?" }
+                };
+            }
+        }
+
+        private static string ExtractJsonObject(string text)
+        {
+            var value = text.Trim();
+            if (value.StartsWith("```", StringComparison.Ordinal))
+            {
+                var firstNewLine = value.IndexOf('\n');
+                if (firstNewLine >= 0) value = value[(firstNewLine + 1)..];
+                var closing = value.LastIndexOf("```", StringComparison.Ordinal);
+                if (closing >= 0) value = value[..closing];
+            }
+            return value.Trim();
+        }
+
+        private async Task<InventoryAiChatResponseDto?> CallGeminiForInventoryAsync(
+            string apiKey,
+            string modelName,
+            List<object> contentsList)
+        {
+            try
+            {
+                var body = new
+                {
+                    contents = contentsList,
+                    generationConfig = new
+                    {
+                        temperature = 0.2,
+                        maxOutputTokens = 1200,
+                        responseMimeType = "application/json"
+                    }
+                };
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+                using var response = await _httpClient.PostAsync(
+                    $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:generateContent?key={apiKey}",
+                    new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+                    cts.Token);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(cts.Token);
+                    _logger.LogWarning("Gemini Inventory API ({Model}) returned status {StatusCode}: {Body}",
+                        modelName, response.StatusCode, errorBody.Length > 300 ? errorBody[..300] : errorBody);
+                    return null;
+                }
+
+                var responseString = await response.Content.ReadAsStringAsync(cts.Token);
+                using var doc = JsonDocument.Parse(responseString);
+
+                if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                {
+                    _logger.LogWarning("Gemini Inventory ({Model}): No candidates returned.", modelName);
+                    return null;
+                }
+
+                var firstCandidate = candidates[0];
+                if (!firstCandidate.TryGetProperty("content", out var contentProp) ||
+                    !contentProp.TryGetProperty("parts", out var parts) ||
+                    parts.GetArrayLength() == 0)
+                {
+                    return null;
+                }
+
+                var text = parts[0].GetProperty("text").GetString();
+                if (string.IsNullOrWhiteSpace(text)) return null;
+
+                var cleanJson = ExtractJsonObject(text);
+                var parsed = JsonSerializer.Deserialize<InventoryAiChatResponseDto>(cleanJson, JsonOptions);
+                return parsed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi khi gọi hoặc parse dữ liệu Gemini Inventory với model {Model}", modelName);
+                return null;
+            }
+        }
+
+        public Task<InventoryAiChatResponseDto> GetInventorySummaryAsync(int storeId, int periodDays = 30) =>
+            ChatWithInventoryAsync(new InventoryAiChatRequestDto { StoreId = storeId, PeriodDays = periodDays, Message = "Hãy tự động phân tích tình hình kho hiện tại. Nêu cụ thể nguyên liệu đang thiếu, số lượng hiện tại, số lượng nên nhập và món bán chạy liên quan." });
+
+        private static InventoryAiChatResponseDto BuildInventoryFallback(string storeName, int periodDays, IEnumerable<dynamic> sales, IEnumerable<dynamic> stocks, IEnumerable<dynamic> recipes)
+        {
+            var saleList = sales.ToList();
+            var stockList = stocks.ToList();
+            var recipeList = recipes.ToList();
+            var recipeRecommendations = recipeList.GroupBy(r => new { r.IngredientName, r.Unit }).Select(g =>
+            {
+                var stock = stockList.FirstOrDefault(s => s.Name == g.Key.IngredientName);
+                var demand = saleList.Where(s => g.Any(r => r.MenuItemId == s.MenuItemId)).Sum(s => (decimal)s.Quantity) * g.Sum(r => (decimal)r.QuantityRequired);
+                var need = Math.Max(0, demand - (stock?.CurrentQuantity ?? 0));
+                return new InventoryAiRecommendationDto { IngredientName = g.Key.IngredientName, SuggestedQuantity = Math.Round(need, 2), Unit = g.Key.Unit, Priority = stock != null && stock.CurrentQuantity <= stock.MinimumStock ? "high" : "medium", Reason = "Tính từ doanh số món bán chạy và tồn kho hiện tại." };
+            }).Where(x => x.SuggestedQuantity > 0).ToList();
+            var lowStockRecommendations = stockList
+                .Where(s => s.CurrentQuantity < s.MinimumStock)
+                .Select(s => new InventoryAiRecommendationDto
+                {
+                    IngredientName = s.Name,
+                    SuggestedQuantity = Math.Round(Math.Max(s.MinimumStock - s.CurrentQuantity, s.MinimumStock), 2),
+                    Unit = s.Unit,
+                    Priority = s.CurrentQuantity <= 0 ? "critical" : "high",
+                    Reason = $"Tồn hiện tại {s.CurrentQuantity:0.##} {s.Unit}, dưới mức tối thiểu {s.MinimumStock:0.##} {s.Unit}."
+                });
+            var recommendations = MergeInventoryRecommendations(lowStockRecommendations.ToList(), recipeRecommendations)
+                .OrderByDescending(x => x.Priority == "critical")
+                .ThenByDescending(x => x.Priority == "high")
+                .Take(12).ToList();
+            var top = saleList.Take(3).Select(s => new InventoryAiTopProductDto { MenuItemId = s.MenuItemId, MenuItemName = s.Name, SoldQuantity = s.Quantity }).ToList();
+            var details = recommendations.Count == 0 ? "Hiện chưa phát hiện nguyên liệu nào cần nhập thêm theo mức tồn tối thiểu và doanh số hiện có." : "Bạn nên ưu tiên nhập: " + string.Join("; ", recommendations.Take(5).Select(x => $"{x.IngredientName} khoảng {x.SuggestedQuantity:0.##} {x.Unit}")) + ".";
+            var best = top.Count == 0 ? "Chưa có đủ dữ liệu bán hàng." : "Món bán chạy: " + string.Join(", ", top.Select(x => $"{x.MenuItemName} ({x.SoldQuantity} phần)")) + ".";
+            return new InventoryAiChatResponseDto { StoreName = storeName, PeriodDays = periodDays, IsAiGenerated = false, Recommendations = recommendations, TopSellingItems = top, Reply = $"Tình hình kho của {storeName} trong {periodDays} ngày gần nhất: {details} {best}", QuickFollowUps = new() { "Nguyên liệu nào sắp hết?", "Món nào bán chạy nhất?", "Nếu doanh số tăng 20% thì cần nhập thêm gì?" } };
+        }
+
+        private static List<InventoryAiRecommendationDto> MergeInventoryRecommendations(IEnumerable<InventoryAiRecommendationDto> required, IEnumerable<InventoryAiRecommendationDto> ai)
+        {
+            var result = required.ToDictionary(x => x.IngredientName, StringComparer.OrdinalIgnoreCase);
+            foreach (var item in ai)
+            {
+                if (!result.ContainsKey(item.IngredientName)) result[item.IngredientName] = item;
+            }
+            return result.Values.ToList();
+        }
+
         private async Task<AiChatResponseDto?> CallGeminiForChatAsync(
             string apiKey,
             string modelName,

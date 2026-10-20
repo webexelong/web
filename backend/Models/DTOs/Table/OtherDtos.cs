@@ -10,6 +10,7 @@ namespace WebCafe.Backend.Models.DTOs.Table
         public int Capacity { get; set; }
         public string? Location { get; set; }
         public string? QRCodeUrl { get; set; }
+        public string QrToken { get; set; } = string.Empty;
         public string Status { get; set; } = "Available";
         public bool IsActive { get; set; }
         public int? ActiveOrderId { get; set; }
@@ -38,6 +39,15 @@ namespace WebCafe.Backend.Models.DTOs.Table
         [RegularExpression(@"^(Available|Occupied|Reserved)$", 
             ErrorMessage = "Trạng thái phải là: Available, Occupied hoặc Reserved.")]
         public string Status { get; set; } = "Available"; // Available, Occupied, Reserved
+    }
+
+    public class TableQrResolutionDto
+    {
+        public int StoreId { get; set; }
+        public int TableId { get; set; }
+        public string TableNumber { get; set; } = string.Empty;
+        public string StoreName { get; set; } = string.Empty;
+        public string TenantName { get; set; } = string.Empty;
     }
 }
 

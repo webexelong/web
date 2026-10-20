@@ -12,6 +12,10 @@ namespace WebCafe.Backend.Infrastructure.Data
         public DbSet<SystemAdmin> SystemAdmins => Set<SystemAdmin>();
         public DbSet<Tenant> Tenants => Set<Tenant>();
         public DbSet<Store> Stores => Set<Store>();
+        public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+        public DbSet<SubscriptionPlanFeature> SubscriptionPlanFeatures => Set<SubscriptionPlanFeature>();
+        public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+        public DbSet<SubscriptionBillingRecord> SubscriptionBillingRecords => Set<SubscriptionBillingRecord>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -48,6 +52,11 @@ namespace WebCafe.Backend.Infrastructure.Data
             // Unique constraints
             modelBuilder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
             modelBuilder.Entity<Tenant>().HasIndex(t => t.OwnerEmail).IsUnique();
+            modelBuilder.Entity<Tenant>().Property(t => t.OwnerEmailVerified).HasDefaultValue(true);
+            modelBuilder.Entity<SubscriptionPlan>().HasIndex(p => p.Code).IsUnique();
+            modelBuilder.Entity<SubscriptionPlanFeature>().HasIndex(p => new { p.PlanId, p.FeatureCode }).IsUnique();
+            modelBuilder.Entity<SubscriptionPlanFeature>().HasOne(p => p.Plan).WithMany(p => p.Features).HasForeignKey(p => p.PlanId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TenantSubscription>().HasIndex(s => new { s.TenantId, s.Status });
             modelBuilder.Entity<SystemAdmin>().HasIndex(a => a.Username).IsUnique();
             modelBuilder.Entity<Permission>().HasIndex(p => p.Code).IsUnique();
             modelBuilder.Entity<Role>().HasIndex(r => new { r.TenantId, r.Name }).IsUnique();
@@ -57,9 +66,20 @@ namespace WebCafe.Backend.Infrastructure.Data
             modelBuilder.Entity<MenuItemSize>().HasIndex(ms => new { ms.MenuItemId, ms.SizeId }).IsUnique();
             modelBuilder.Entity<MenuItemTopping>().HasIndex(mt => new { mt.MenuItemId, mt.ToppingId }).IsUnique();
             modelBuilder.Entity<Table>().HasIndex(t => new { t.StoreId, t.TableNumber }).IsUnique();
+            modelBuilder.Entity<Table>().HasIndex(t => t.QrToken).IsUnique();
             modelBuilder.Entity<Customer>().HasIndex(c => new { c.TenantId, c.Phone }).IsUnique();
             modelBuilder.Entity<Voucher>().HasIndex(v => new { v.TenantId, v.Code }).IsUnique();
             modelBuilder.Entity<Order>().HasIndex(o => new { o.TenantId, o.OrderCode }).IsUnique();
+            // Database constraints are the final guard against concurrent/replayed payment webhooks.
+            modelBuilder.Entity<Payment>().HasIndex(p => p.TransactionRef)
+                .IsUnique()
+                .HasFilter("[TransactionRef] IS NOT NULL");
+            modelBuilder.Entity<Payment>().HasIndex(p => p.OrderId, "IX_Payments_OrderId_Pending")
+                .IsUnique()
+                .HasFilter("[Status] = N'pending'");
+            modelBuilder.Entity<Payment>().HasIndex(p => p.OrderId)
+                .IsUnique()
+                .HasFilter("[Status] = N'completed'");
 
             // Inventory constraints
             modelBuilder.Entity<Ingredient>().HasIndex(i => new { i.TenantId, i.Name }).IsUnique();

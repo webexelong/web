@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useStore } from '../store/useStore';
+import { meApi } from '../api/apis';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -9,6 +10,9 @@ export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const { setStoreId } = useStore();
+  const [stores, setStores] = useState<Array<{ storeId: number; name: string }>>([]);
+  const [subscription, setSubscription] = useState<{ plan: string; status: string; daysRemaining?: number | null } | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<number>(user?.storeId ?? 0);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -24,7 +28,7 @@ export default function AdminLayout() {
     }
 
     // Nếu là Staff đi lạc vào trang quản lý của Chủ quán, điều hướng về màn hình nhân viên
-    if (user?.role === 'Staff' || user?.role === 'Kitchen' || user?.role === 'Cashier' || user?.role === 'Barista') {
+    if (user?.role === 'Staff') {
       navigate('/staff/orders', { replace: true });
       return;
     }
@@ -35,6 +39,27 @@ export default function AdminLayout() {
     }
   }, [location.pathname, navigate, user, setStoreId]);
 
+  useEffect(() => {
+    if (!user || user.role === 'SystemAdmin') return;
+    meApi.getStores().then((items) => {
+      setStores(items ?? []);
+      const initial = selectedStoreId || user.storeId || items?.[0]?.storeId || 0;
+      if (initial) {
+        setSelectedStoreId(initial);
+        setStoreId(initial);
+      }
+    }).catch(() => setStores([]));
+  }, [user, setStoreId]);
+
+  useEffect(() => {
+    if (user && user.role !== 'SystemAdmin') meApi.getSubscription().then(setSubscription).catch(() => setSubscription(null));
+  }, [user]);
+
+  const handleStoreChange = (storeId: number) => {
+    setSelectedStoreId(storeId);
+    setStoreId(storeId);
+  };
+
   const navItems = [
     { path: '/admin/analytics', icon: 'analytics', label: 'Phân Tích' },
     { path: '/admin', icon: 'dashboard', label: 'Bảng Điều Khiển' },
@@ -42,6 +67,8 @@ export default function AdminLayout() {
     { path: '/admin/inventory', icon: 'inventory_2', label: 'Kho & Nguyên Liệu' },
     { path: '/admin/tables', icon: 'table_restaurant', label: 'Bàn' },
     { path: '/admin/staff', icon: 'groups', label: 'Nhân Sự' },
+    { path: '/admin/settings', icon: 'payments', label: 'Cổng Thanh Toán' },
+    { path: '/admin/subscription', icon: 'workspace_premium', label: 'Gói dịch vụ' },
   ];
 
   const handleLogout = () => {
@@ -103,10 +130,15 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="md:ml-64 min-h-screen pt-16 pb-24 md:pb-0">
+      <main className="md:ml-64 min-h-screen pt-[104px] pb-24 md:pb-0">
         {/* Top Navigation Bar */}
-        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-10 bg-surface/90 backdrop-blur-md h-16 flex justify-between items-center px-gutter shadow-sm border-b border-surface-container">
+        <header className="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-10 bg-surface/90 backdrop-blur-md h-[104px] flex justify-between items-center px-gutter shadow-sm border-b border-surface-container">
           <div className="flex items-center gap-4">
+            {stores.length > 1 && (
+              <select value={selectedStoreId} onChange={(e) => handleStoreChange(Number(e.target.value))} className="bg-surface-container-low border border-outline-variant/30 rounded-full px-3 py-2 text-sm">
+                {stores.map((store) => <option key={store.storeId} value={store.storeId}>{store.name}</option>)}
+              </select>
+            )}
             <button className="md:hidden p-2 -ml-2 text-primary hover:bg-surface-variant rounded-full transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               <span className="material-symbols-outlined text-2xl">{isMobileMenuOpen ? 'close' : 'menu'}</span>
             </button>
@@ -129,21 +161,26 @@ export default function AdminLayout() {
           </div>
         </header>
 
+        {subscription?.status === 'trialing' && <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 md:mx-8">Gói dùng thử <strong>{subscription.plan}</strong> còn <strong>{subscription.daysRemaining ?? 0} ngày</strong>.</div>}
+        {subscription?.status === 'suspended' && <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">Gói đã hết hạn. Vui lòng chọn gói để mở lại tính năng quản lý.</div>}
+
         {/* Content Outlet */}
         <Outlet />
       </main>
 
       {/* Mobile Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest h-20 flex justify-around items-center px-4 border-t border-surface-container z-40">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest h-[68px] overflow-x-auto border-t border-surface-container z-40">
+        <div className="flex min-w-max h-full items-center gap-1 px-2">
         {navItems.map(item => {
             const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
             return (
-              <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-1 ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}>
-                <span className="material-symbols-outlined" style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>{item.icon}</span>
-                <span className="text-[10px] font-bold uppercase tracking-tighter">{item.label}</span>
+              <Link key={item.path} to={item.path} className={`flex h-full min-w-[62px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-center ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}>
+                <span className="material-symbols-outlined text-[19px] leading-5" style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}>{item.icon}</span>
+                <span className="max-w-[62px] text-[8px] font-bold uppercase leading-[10px] tracking-[-0.02em]">{item.label}</span>
               </Link>
             )
         })}
+        </div>
       </nav>
     </div>
   );

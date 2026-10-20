@@ -20,6 +20,27 @@ interface AuthState {
   hasRole: (roles: string[]) => boolean;
 }
 
+export const isTokenExpired = (token: string | null): boolean => {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (!decoded.exp) return false;
+    return decoded.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -28,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       setAuth: (data) => {
+        localStorage.setItem('token', data.token);
         set({
           token: data.token,
           user: data.user,
@@ -37,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         set({
           token: null,
           user: null,
@@ -51,6 +74,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Tự động dọn dẹp nếu token đã hết hạn hoặc không hợp lệ khi tải lại trang
+          if (!state.token || isTokenExpired(state.token)) {
+            state.logout();
+          }
+        }
+      },
     }
   )
 );
+

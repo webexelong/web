@@ -83,6 +83,10 @@ namespace WebCafe.Backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -422,6 +426,9 @@ namespace WebCafe.Backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderId"));
 
+                    b.Property<int?>("AppliedVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -451,6 +458,14 @@ namespace WebCafe.Backend.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PaymentAccessToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("PaymentActivatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("PointsEarned")
                         .HasColumnType("int");
@@ -594,8 +609,20 @@ namespace WebCafe.Backend.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(15,0)");
 
+                    b.Property<string>("CheckoutUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalBankBin")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ExternalPaymentLinkId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Method")
                         .IsRequired()
@@ -611,6 +638,10 @@ namespace WebCafe.Backend.Migrations
                     b.Property<int?>("ProcessedByStaffId")
                         .HasColumnType("int");
 
+                    b.Property<string>("QrCode")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -622,9 +653,19 @@ namespace WebCafe.Backend.Migrations
 
                     b.HasKey("PaymentId");
 
-                    b.HasIndex("OrderId");
+                    b.HasIndex("OrderId")
+                        .IsUnique()
+                        .HasFilter("[Status] = N'completed'");
 
                     b.HasIndex("ProcessedByStaffId");
+
+                    b.HasIndex("TransactionRef")
+                        .IsUnique()
+                        .HasFilter("[TransactionRef] IS NOT NULL");
+
+                    b.HasIndex(new[] { "OrderId" }, "IX_Payments_OrderId_Pending")
+                        .IsUnique()
+                        .HasFilter("[Status] = N'pending'");
 
                     b.ToTable("Payments");
                 });
@@ -892,6 +933,18 @@ namespace WebCafe.Backend.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("PayOSApiKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PayOSChecksumKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PayOSClientId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
@@ -904,6 +957,124 @@ namespace WebCafe.Backend.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Stores");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionBillingRecord", b =>
+                {
+                    b.Property<int>("BillingRecordId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BillingRecordId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(12,0)");
+
+                    b.Property<DateTime>("BillingPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("BillingPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalReference")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("BillingRecordId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("SubscriptionBillingRecords");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionPlan", b =>
+                {
+                    b.Property<int>("PlanId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanId"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxStaff")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxStores")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxTablesPerStore")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MonthlyPrice")
+                        .HasColumnType("decimal(12,0)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("PlanId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlans");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionPlanFeature", b =>
+                {
+                    b.Property<int>("PlanFeatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PlanFeatureId"));
+
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PlanFeatureId");
+
+                    b.HasIndex("PlanId", "FeatureCode")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlanFeatures");
                 });
 
             modelBuilder.Entity("WebCafe.Backend.Models.Entities.SystemAdmin", b =>
@@ -973,6 +1144,11 @@ namespace WebCafe.Backend.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("QrToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -987,6 +1163,9 @@ namespace WebCafe.Backend.Migrations
                         .HasColumnType("nvarchar(10)");
 
                     b.HasKey("TableId");
+
+                    b.HasIndex("QrToken")
+                        .IsUnique();
 
                     b.HasIndex("StoreId", "TableNumber")
                         .IsUnique();
@@ -1004,6 +1183,13 @@ namespace WebCafe.Backend.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EmailVerificationExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailVerificationTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1024,6 +1210,11 @@ namespace WebCafe.Backend.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("OwnerEmailVerified")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("OwnerName")
                         .IsRequired()
@@ -1065,6 +1256,55 @@ namespace WebCafe.Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Tenants");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.TenantSubscription", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SubscriptionId"));
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("GraceEndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SubscriptionId");
+
+                    b.HasIndex("PlanId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("TenantSubscriptions");
                 });
 
             modelBuilder.Entity("WebCafe.Backend.Models.Entities.Topping", b =>
@@ -1622,6 +1862,36 @@ namespace WebCafe.Backend.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionBillingRecord", b =>
+                {
+                    b.HasOne("WebCafe.Backend.Models.Entities.TenantSubscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WebCafe.Backend.Models.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionPlanFeature", b =>
+                {
+                    b.HasOne("WebCafe.Backend.Models.Entities.SubscriptionPlan", "Plan")
+                        .WithMany("Features")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+                });
+
             modelBuilder.Entity("WebCafe.Backend.Models.Entities.Table", b =>
                 {
                     b.HasOne("WebCafe.Backend.Models.Entities.Store", "Store")
@@ -1631,6 +1901,25 @@ namespace WebCafe.Backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.TenantSubscription", b =>
+                {
+                    b.HasOne("WebCafe.Backend.Models.Entities.SubscriptionPlan", "Plan")
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WebCafe.Backend.Models.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("WebCafe.Backend.Models.Entities.Topping", b =>
@@ -1801,6 +2090,11 @@ namespace WebCafe.Backend.Migrations
                     b.Navigation("StaffList");
 
                     b.Navigation("Tables");
+                });
+
+            modelBuilder.Entity("WebCafe.Backend.Models.Entities.SubscriptionPlan", b =>
+                {
+                    b.Navigation("Features");
                 });
 
             modelBuilder.Entity("WebCafe.Backend.Models.Entities.Table", b =>

@@ -21,6 +21,9 @@ namespace WebCafe.Backend.Models.Entities
         [MaxLength(500)]
         public string? QRCodeUrl { get; set; }
 
+        [Required, MaxLength(64)]
+        public string QrToken { get; set; } = Guid.NewGuid().ToString("N");
+
         [Required, MaxLength(20)]
         public string Status { get; set; } = "Available"; // Available, Occupied, Reserved
 
@@ -120,6 +123,9 @@ namespace WebCafe.Backend.Models.Entities
         [Required, MaxLength(15)]
         public string Phone { get; set; } = string.Empty;
 
+        [MaxLength(256)]
+        public string? PasswordHash { get; set; }
+
         [MaxLength(100)]
         public string? Name { get; set; }
 
@@ -212,6 +218,10 @@ namespace WebCafe.Backend.Models.Entities
         [MaxLength(100)]
         public string? GuestId { get; set; }
 
+        // Opaque capability used by unauthenticated guests to pay their own order.
+        [Required, MaxLength(64)]
+        public string PaymentAccessToken { get; set; } = Guid.NewGuid().ToString("N");
+
         [MaxLength(100)]
         public string? GuestName { get; set; }
 
@@ -241,6 +251,10 @@ namespace WebCafe.Backend.Models.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
+
+        // Set once when payment-side effects (loyalty, voucher, inventory) are finalized.
+        public DateTime? PaymentActivatedAt { get; set; }
+        public int? AppliedVoucherId { get; set; }
 
         [ForeignKey(nameof(TenantId))]
         public Tenant? Tenant { get; set; }
@@ -336,6 +350,18 @@ namespace WebCafe.Backend.Models.Entities
 
         [MaxLength(100)]
         public string? TransactionRef { get; set; }
+
+        [MaxLength(2048)]
+        public string? CheckoutUrl { get; set; }
+
+        [MaxLength(4000)]
+        public string? QrCode { get; set; }
+
+        [MaxLength(100)]
+        public string? ExternalPaymentLinkId { get; set; }
+
+        [MaxLength(20)]
+        public string? ExternalBankBin { get; set; }
 
         [Required, MaxLength(20)]
         public string Status { get; set; } = "pending"; // pending, completed, failed

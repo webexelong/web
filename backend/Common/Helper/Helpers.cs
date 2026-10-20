@@ -1,9 +1,10 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using WebCafe.Backend.Common.Constants;
 using WebCafe.Backend.Common.Models;
 
 namespace WebCafe.Backend.Common.Helper
@@ -50,12 +51,13 @@ namespace WebCafe.Backend.Common.Helper
             string userId,
             string username,
             string role,
-            int tenantId,
+            int? tenantId,
             int? storeId,
             string secretKey,
             string issuer,
             string audience,
-            int expireHours = 24)
+            int expireHours = 24,
+            int? customerId = null)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(secretKey);
@@ -65,12 +67,21 @@ namespace WebCafe.Backend.Common.Helper
                 new(ClaimTypes.NameIdentifier, userId),
                 new(ClaimTypes.Name, username),
                 new(ClaimTypes.Role, role),
-                new("TenantId", tenantId.ToString()),
             };
+
+            if (tenantId.HasValue)
+            {
+                claims.Add(new(AppClaimTypes.TenantId, tenantId.Value.ToString()));
+            }
 
             if (storeId.HasValue)
             {
-                claims.Add(new("StoreId", storeId.Value.ToString()));
+                claims.Add(new(AppClaimTypes.StoreId, storeId.Value.ToString()));
+            }
+
+            if (customerId.HasValue)
+            {
+                claims.Add(new(AppClaimTypes.CustomerId, customerId.Value.ToString()));
             }
 
             var tokenDescriptor = new SecurityTokenDescriptor

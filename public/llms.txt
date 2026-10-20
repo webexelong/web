@@ -1,0 +1,10 @@
+# AI-SMARTSERVE
+
+> Nền tảng gọi món thông minh và trợ lý ẩm thực AI Sommelier dành cho quán cà phê, nhà hàng.
+
+AI-SMARTSERVE cung cấp giải pháp gọi món kỹ thuật số thông minh với thực đơn trực tuyến, hỗ trợ tư vấn từ trợ lý AI Sommelier và thanh toán không tiếp xúc qua mã VietQR.
+
+## Docs
+- [Thực đơn trực tuyến](https://www.ai-smartserve.io.vn/table/1/1): Danh mục thức uống và bánh ngọt thủ công cập nhật theo thời gian thực
+- [Trợ lý AI Sommelier](https://www.ai-smartserve.io.vn/ai-suggest): Tư vấn gợi ý đồ uống cá nhân hóa theo tâm trạng và hương vị
+- [Giỏ hàng và Đặt món](https://www.ai-smartserve.io.vn/cart): Quản lý món đã chọn và tiến hành thanh toán VietQR

@@ -1,53 +1,74 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import CustomerLayout from './layouts/CustomerLayout';
-import StaffLayout from './layouts/StaffLayout';
-import AdminLayout from './layouts/AdminLayout';
-import SystemAdminLayout from './layouts/SystemAdminLayout';
-
-// Auth Pages
-import Login from './pages/Login';
-
-// Customer Pages
-import ProductDetail from './pages/customer/ProductDetail';
 import Menu from './pages/customer/Menu';
-import AIRecommendations from './pages/customer/AIRecommendations';
-import Cart from './pages/customer/Cart';
-import OrderSuccess from './pages/customer/OrderSuccess';
-import OrderTracking from './pages/customer/OrderTracking';
-import QRLanding from './pages/customer/QRLanding';
-import Profile from './pages/customer/Profile';
-import OrderHistory from './pages/customer/OrderHistory';
 
-// Staff Pages
-import StaffOrderDashboard from './pages/staff/StaffOrderDashboard';
-import StaffDashboard from './pages/staff/StaffDashboard';
-import NewOrder from './pages/staff/NewOrder';
+const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const SystemAdminLayout = lazy(() => import('./layouts/SystemAdminLayout'));
 
-// Admin Pages (Store Owner)
-import AdminDashboard from './pages/admin/AdminDashboard';
-import Analytics from './pages/admin/Analytics';
-import MenuManagement from './pages/admin/MenuManagement';
-import InventoryManagement from './pages/admin/InventoryManagement';
-import TableManagement from './pages/admin/TableManagement';
-import StaffManagement from './pages/admin/StaffManagement';
+const Login = lazy(() => import('./pages/Login'));
+const DemoLanding = lazy(() => import('./pages/DemoLanding'));
+const DemoBackoffice = lazy(() => import('./pages/DemoBackoffice'));
+const OwnerSignup = lazy(() => import('./pages/OwnerSignup'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ProductDetail = lazy(() => import('./pages/customer/ProductDetail'));
+const AIRecommendations = lazy(() => import('./pages/customer/AIRecommendations'));
+const Cart = lazy(() => import('./pages/customer/Cart'));
+const OrderSuccess = lazy(() => import('./pages/customer/OrderSuccess'));
+const OrderTracking = lazy(() => import('./pages/customer/OrderTracking'));
+const QRLanding = lazy(() => import('./pages/customer/QRLanding'));
+const Profile = lazy(() => import('./pages/customer/Profile'));
+const OrderHistory = lazy(() => import('./pages/customer/OrderHistory'));
 
-// Super Admin Pages (SaaS Platform Master)
-import SystemAdminDashboard from './pages/system-admin/SystemAdminDashboard';
-import TenantManagement from './pages/system-admin/TenantManagement';
-import SaaSPlansSettings from './pages/system-admin/SaaSPlansSettings';
+const StaffOrderDashboard = lazy(() => import('./pages/staff/StaffOrderDashboard'));
+const StaffDashboard = lazy(() => import('./pages/staff/StaffDashboard'));
+const NewOrder = lazy(() => import('./pages/staff/NewOrder'));
+const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
+
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const MenuManagement = lazy(() => import('./pages/admin/MenuManagement'));
+const InventoryManagement = lazy(() => import('./pages/admin/InventoryManagement'));
+const TableManagement = lazy(() => import('./pages/admin/TableManagement'));
+const StaffManagement = lazy(() => import('./pages/admin/StaffManagement'));
+const PaymentSettings = lazy(() => import('./pages/admin/PaymentSettings'));
+const SubscriptionManagement = lazy(() => import('./pages/admin/SubscriptionManagement'));
+
+const SystemAdminDashboard = lazy(() => import('./pages/system-admin/SystemAdminDashboard'));
+const TenantManagement = lazy(() => import('./pages/system-admin/TenantManagement'));
+const SaaSPlansSettings = lazy(() => import('./pages/system-admin/SaaSPlansSettings'));
 import AnalyticsTracker from './components/AnalyticsTracker';
+import SubscriptionFeatureGate from './components/SubscriptionFeatureGate';
+import ProtectedRoute from './components/ProtectedRoute';
+import NotificationProvider from './components/NotificationProvider';
+import NetworkStatusAlert from './components/NetworkStatusAlert';
 
 function App() {
   return (
-    <Router>
-      <AnalyticsTracker />
-      <Routes>
+    <NotificationProvider>
+      <Router>
+        <NetworkStatusAlert />
+        <AnalyticsTracker />
+        <Suspense fallback={<div className="min-h-screen bg-background p-6 text-on-surface" role="status">Đang tải trang...</div>}>
+          <Routes>
         {/* Auth Route */}
         <Route path="/login" element={<Login />} />
+        <Route path="/system-admin/login" element={<Login />} />
+        <Route path="/demo" element={<DemoLanding />} />
+        <Route path="/demo/backoffice" element={<Navigate to="/demo/owner/dashboard" replace />} />
+        <Route path="/demo/owner" element={<Navigate to="/demo/owner/dashboard" replace />} />
+        <Route path="/demo/owner/:page" element={<DemoBackoffice />} />
+        <Route path="/demo/staff" element={<Navigate to="/demo/staff/orders" replace />} />
+        <Route path="/demo/staff/:page" element={<DemoBackoffice />} />
+        <Route path="/signup" element={<OwnerSignup />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/staff/login" element={<StaffLogin />} />
 
         {/* QR Code Landing - Outside CustomerLayout for custom styling */}
         <Route path="/qr" element={<QRLanding />} />
+        <Route path="/qr/:qrToken" element={<QRLanding />} />
         <Route path="/table/:storeId/:tableId" element={<QRLanding />} />
 
         {/* Customer Routes - Wrapped in CustomerLayout */}
@@ -59,12 +80,20 @@ function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/order-success" element={<OrderSuccess />} />
           <Route path="/tracking" element={<OrderTracking />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile" element={(
+            <ProtectedRoute allowedRoles={['Customer']}>
+              <Profile />
+            </ProtectedRoute>
+          )} />
           <Route path="/history" element={<OrderHistory />} />
         </Route>
 
         {/* Staff Routes - Wrapped in StaffLayout */}
-        <Route path="/staff" element={<StaffLayout />}>
+        <Route path="/staff" element={(
+          <ProtectedRoute allowedRoles={['Staff', 'Owner', 'TenantOwner']}>
+            <StaffLayout />
+          </ProtectedRoute>
+        )}>
           <Route index element={<Navigate to="orders" replace />} />
           <Route path="orders" element={<StaffOrderDashboard />} />
           <Route path="dashboard" element={<StaffDashboard />} />
@@ -72,23 +101,35 @@ function App() {
         </Route>
 
         {/* Store Owner / Store Admin Routes - Wrapped in AdminLayout */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={(
+          <ProtectedRoute allowedRoles={['Owner', 'TenantOwner']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        )}>
           <Route index element={<AdminDashboard />} />
-          <Route path="analytics" element={<Analytics />} />
+          <Route path="analytics" element={<SubscriptionFeatureGate feature="advanced_analytics" requiredPlan="Premium"><Analytics /></SubscriptionFeatureGate>} />
           <Route path="menu" element={<MenuManagement />} />
-          <Route path="inventory" element={<InventoryManagement />} />
+          <Route path="inventory" element={<SubscriptionFeatureGate feature="inventory" requiredPlan="Premium"><InventoryManagement /></SubscriptionFeatureGate>} />
           <Route path="tables" element={<TableManagement />} />
           <Route path="staff" element={<StaffManagement />} />
+          <Route path="settings" element={<PaymentSettings />} />
+          <Route path="subscription" element={<SubscriptionManagement />} />
+          <Route path="payments" element={<Navigate to="/admin/settings" replace />} />
         </Route>
 
         {/* Super Admin Platform Routes - Wrapped in SystemAdminLayout */}
-        <Route path="/system-admin" element={<SystemAdminLayout />}>
+        <Route path="/system-admin" element={(
+          <ProtectedRoute allowedRoles={['SystemAdmin']}>
+            <SystemAdminLayout />
+          </ProtectedRoute>
+        )}>
           <Route index element={<SystemAdminDashboard />} />
           <Route path="tenants" element={<TenantManagement />} />
           <Route path="plans" element={<SaaSPlansSettings />} />
         </Route>
-      </Routes>
-    </Router>
+        </Routes>
+      </Suspense>
+    </Router></NotificationProvider>
   );
 }
 

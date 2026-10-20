@@ -50,10 +50,8 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
             <div className="mt-2 inline-block px-2.5 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold uppercase">
               {user.role === 'SystemAdmin' ? 'Quản trị viên' : 
                user.role === 'Owner' ? 'Chủ quán' :
-               user.role === 'Manager' ? 'Quản lý' :
                user.role === 'Staff' ? 'Nhân viên' :
-               user.role === 'Kitchen' ? 'Bếp' :
-               user.role === 'Cashier' ? 'Thu ngân' : 'Khách hàng'}
+               'Khách hàng'}
             </div>
           )}
         </div>
@@ -76,18 +74,29 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
             <span className="text-sm font-medium text-gray-800">Lịch sử đơn hàng</span>
           </button>
 
-          {/* Admin/Staff Menu Access */}
-          {(user?.role === 'SystemAdmin' || user?.role === 'Owner' || user?.role === 'Manager') && (
+          {/* SystemAdmin Link */}
+          {user?.role === 'SystemAdmin' && (
             <button
-              onClick={() => handleNavigate('/admin')}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+              onClick={() => handleNavigate('/system-admin')}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-purple-900 rounded-xl transition-colors text-left"
             >
-              <span className="material-symbols-outlined text-gray-600">admin_panel_settings</span>
-              <span className="text-sm font-medium text-gray-800">Quản trị hệ thống</span>
+              <span className="material-symbols-outlined text-purple-600">shield_person</span>
+              <span className="text-sm font-semibold">Cổng Super Admin</span>
             </button>
           )}
 
-          {(user?.role === 'Staff' || user?.role === 'Kitchen' || user?.role === 'Cashier') && (
+          {/* Store Owner Link */}
+          {(user?.role === 'Owner' || user?.role === 'TenantOwner') && (
+            <button
+              onClick={() => handleNavigate('/admin')}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-50 text-amber-900 rounded-xl transition-colors text-left"
+            >
+              <span className="material-symbols-outlined text-amber-600">store</span>
+              <span className="text-sm font-semibold">Quản trị quán Cafe (Admin)</span>
+            </button>
+          )}
+
+          {user?.role === 'Staff' && (
             <button
               onClick={() => handleNavigate('/staff')}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl transition-colors text-left"

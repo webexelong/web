@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WebCafe.Backend.Common.Exceptions;
 using WebCafe.Backend.Infrastructure.Data;
 using WebCafe.Backend.Models.DTOs.Menu;
@@ -82,6 +82,7 @@ namespace WebCafe.Backend.Services.Implementation
         public async Task<StoreMenuResponse> GetMenuByStoreAsync(int storeId)
         {
             var store = await _db.Stores
+                .AsNoTracking()
                 .Include(s => s.Tenant)
                 .FirstOrDefaultAsync(s => s.StoreId == storeId && s.IsActive);
 
@@ -93,6 +94,7 @@ namespace WebCafe.Backend.Services.Implementation
             var tenantId = store.TenantId;
 
             var categories = await _db.Categories
+                .AsNoTracking()
                 .Where(c => c.TenantId == tenantId && c.IsActive && !c.IsDeleted)
                 .OrderBy(c => c.SortOrder)
                 .Select(c => new CategoryDto
@@ -107,6 +109,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .ToListAsync();
 
             var items = await _db.MenuItems
+                .AsNoTracking()
                 .Where(m => m.TenantId == tenantId && m.IsAvailable && !m.IsDeleted)
                 .Include(m => m.Category)
                 .Include(m => m.MenuItemSizes)
@@ -244,7 +247,34 @@ namespace WebCafe.Backend.Services.Implementation
             _db.MenuItems.Add(item);
             await _db.SaveChangesAsync();
 
-            if (dto.SizeIds != null && dto.SizeIds.Any())
+            if (dto.CustomSizes != null && dto.CustomSizes.Any())
+            {
+                foreach (var cs in dto.CustomSizes)
+                {
+                    int sizeId = cs.SizeId ?? 0;
+                    if (sizeId <= 0 && !string.IsNullOrWhiteSpace(cs.SizeName))
+                    {
+                        var name = cs.SizeName.Trim();
+                        var existingSize = await _db.Sizes.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Name.ToLower() == name.ToLower());
+                        if (existingSize != null)
+                        {
+                            sizeId = existingSize.SizeId;
+                        }
+                        else
+                        {
+                            var newSize = new Size { TenantId = tenantId, Name = name };
+                            _db.Sizes.Add(newSize);
+                            await _db.SaveChangesAsync();
+                            sizeId = newSize.SizeId;
+                        }
+                    }
+                    if (sizeId > 0)
+                    {
+                        _db.MenuItemSizes.Add(new MenuItemSize { MenuItemId = item.MenuItemId, SizeId = sizeId, ExtraPrice = cs.ExtraPrice });
+                    }
+                }
+            }
+            else if (dto.SizeIds != null && dto.SizeIds.Any())
             {
                 foreach (var sId in dto.SizeIds)
                 {
@@ -279,6 +309,38 @@ namespace WebCafe.Backend.Services.Implementation
             item.SortOrder = dto.SortOrder;
             item.UpdatedAt = DateTime.UtcNow;
 
+            // Cập nhật Sizes
+            if (dto.CustomSizes != null)
+            {
+                var existingSizes = await _db.MenuItemSizes.Where(ms => ms.MenuItemId == item.MenuItemId).ToListAsync();
+                _db.MenuItemSizes.RemoveRange(existingSizes);
+
+                foreach (var cs in dto.CustomSizes)
+                {
+                    int sizeId = cs.SizeId ?? 0;
+                    if (sizeId <= 0 && !string.IsNullOrWhiteSpace(cs.SizeName))
+                    {
+                        var name = cs.SizeName.Trim();
+                        var existingSize = await _db.Sizes.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Name.ToLower() == name.ToLower());
+                        if (existingSize != null)
+                        {
+                            sizeId = existingSize.SizeId;
+                        }
+                        else
+                        {
+                            var newSize = new Size { TenantId = tenantId, Name = name };
+                            _db.Sizes.Add(newSize);
+                            await _db.SaveChangesAsync();
+                            sizeId = newSize.SizeId;
+                        }
+                    }
+                    if (sizeId > 0)
+                    {
+                        _db.MenuItemSizes.Add(new MenuItemSize { MenuItemId = item.MenuItemId, SizeId = sizeId, ExtraPrice = cs.ExtraPrice });
+                    }
+                }
+            }
+
             await _db.SaveChangesAsync();
             return (await GetByIdAsync(item.MenuItemId))!;
         }
@@ -298,10 +360,12 @@ namespace WebCafe.Backend.Services.Implementation
     public class TableService : ITableService
     {
         private readonly WebCafeDbContext _db;
+        private readonly IConfiguration _configuration;
 
-        public TableService(WebCafeDbContext db)
+        public TableService(WebCafeDbContext db, IConfiguration configuration)
         {
             _db = db;
+            _configuration = configuration;
         }
 
         public async Task<List<TableDto>> GetTablesByStoreAsync(int storeId)
@@ -325,6 +389,7 @@ namespace WebCafe.Backend.Services.Implementation
                     Capacity = t.Capacity,
                     Location = t.Location,
                     QRCodeUrl = t.QRCodeUrl,
+                    QrToken = t.QrToken,
                     Status = activeOrder != null ? "Occupied" : t.Status,
                     IsActive = t.IsActive,
                     ActiveOrderId = activeOrder?.OrderId,
@@ -336,19 +401,18 @@ namespace WebCafe.Backend.Services.Implementation
         public async Task<TableDto> CreateTableAsync(CreateTableDto dto)
         {
             var tableNum = dto.TableNumber.Trim();
-            var qrUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://localhost:5173/menu?storeId={dto.StoreId}%26table={tableNum}";
-
             var table = new Table
             {
                 StoreId = dto.StoreId,
                 TableNumber = tableNum,
                 Capacity = dto.Capacity,
                 Location = dto.Location,
-                QRCodeUrl = qrUrl,
                 Status = "Available",
                 IsActive = true
             };
             _db.Tables.Add(table);
+            await _db.SaveChangesAsync();
+            table.QRCodeUrl = BuildQrUrl(table);
             await _db.SaveChangesAsync();
 
             return new TableDto
@@ -359,6 +423,7 @@ namespace WebCafe.Backend.Services.Implementation
                 Capacity = table.Capacity,
                 Location = table.Location,
                 QRCodeUrl = table.QRCodeUrl,
+                QrToken = table.QrToken,
                 Status = table.Status,
                 IsActive = table.IsActive
             };
@@ -380,6 +445,7 @@ namespace WebCafe.Backend.Services.Implementation
                 Capacity = table.Capacity,
                 Location = table.Location,
                 QRCodeUrl = table.QRCodeUrl,
+                QrToken = table.QrToken,
                 Status = table.Status,
                 IsActive = table.IsActive
             };
@@ -392,6 +458,68 @@ namespace WebCafe.Backend.Services.Implementation
 
             table.IsActive = false;
             await _db.SaveChangesAsync();
+        }
+
+        public async Task<TableDto> RegenerateQrAsync(int tableId)
+        {
+            var table = await _db.Tables.FirstOrDefaultAsync(t => t.TableId == tableId);
+            if (table == null) throw new NotFoundException("Không tìm thấy bàn.");
+            table.QrToken = Guid.NewGuid().ToString("N");
+            table.QRCodeUrl = BuildQrUrl(table);
+            await _db.SaveChangesAsync();
+            return (await GetTablesByStoreAsync(table.StoreId)).First(t => t.TableId == tableId);
+        }
+
+        public async Task<TableQrResolutionDto?> ResolveQrAsync(string qrToken)
+        {
+            return await _db.Tables
+                .Where(t => t.QrToken == qrToken && t.IsActive && t.Store != null && t.Store.IsActive && t.Store.Tenant != null && t.Store.Tenant.IsActive)
+                .Select(t => new TableQrResolutionDto
+                {
+                    StoreId = t.StoreId,
+                    TableId = t.TableId,
+                    TableNumber = t.TableNumber,
+                    StoreName = t.Store!.Name,
+                    TenantName = t.Store.Tenant!.Name
+                })
+                .SingleOrDefaultAsync();
+        }
+
+        public async Task<TableQrResolutionDto?> ResolveQrAsyncByIds(int storeId, int tableId)
+        {
+            return await _db.Tables
+                .Where(t => t.StoreId == storeId && t.TableId == tableId && t.IsActive && t.Store != null && t.Store.IsActive && t.Store.Tenant != null && t.Store.Tenant.IsActive)
+                .Select(t => new TableQrResolutionDto
+                {
+                    StoreId = t.StoreId,
+                    TableId = t.TableId,
+                    TableNumber = t.TableNumber,
+                    StoreName = t.Store!.Name,
+                    TenantName = t.Store.Tenant!.Name
+                })
+                .SingleOrDefaultAsync();
+        }
+
+        public async Task<TableQrResolutionDto?> ResolveQrAsyncByNumber(int storeId, string tableNumber)
+        {
+            if (string.IsNullOrWhiteSpace(tableNumber)) return null;
+            return await _db.Tables
+                .Where(t => t.StoreId == storeId && t.TableNumber == tableNumber && t.IsActive && t.Store != null && t.Store.IsActive && t.Store.Tenant != null && t.Store.Tenant.IsActive)
+                .Select(t => new TableQrResolutionDto
+                {
+                    StoreId = t.StoreId,
+                    TableId = t.TableId,
+                    TableNumber = t.TableNumber,
+                    StoreName = t.Store!.Name,
+                    TenantName = t.Store.Tenant!.Name
+                })
+                .SingleOrDefaultAsync();
+        }
+
+        private string BuildQrUrl(Table table)
+        {
+            var publicUrl = (_configuration["Frontend:PublicUrl"] ?? "http://localhost:5173").TrimEnd('/');
+            return $"{publicUrl}/qr/{table.QrToken}";
         }
     }
 }

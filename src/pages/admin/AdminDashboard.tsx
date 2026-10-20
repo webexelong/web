@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { analyticsApi, orderApi, menuApi } from '../../api/apis';
+import { analyticsApi, orderApi, menuApi, meApi } from '../../api/apis';
+import type { MySubscriptionDto } from '../../types/apiTypes';
 import type { ShiftOperationsDto, ActiveTableStatusDto, ShiftStockAlertDto } from '../../types/apiTypes';
 import { 
   Coffee, 
@@ -25,12 +26,16 @@ import {
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
-  const activeStoreId = user?.storeId || 1;
+  const activeStoreId = user?.storeId ?? 0;
+
 
   const [shiftData, setShiftData] = useState<ShiftOperationsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTable, setSelectedTable] = useState<ActiveTableStatusDto | null>(null);
+  const [subscription, setSubscription] = useState<MySubscriptionDto | null>(null);
+
+  useEffect(() => { meApi.getSubscription().then(setSubscription).catch(() => setSubscription(null)); }, []);
 
   const fetchShiftData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -68,7 +73,7 @@ export default function AdminDashboard() {
   const d = shiftData;
 
   return (
-    <div className="pt-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-16 animate-in fade-in duration-500 font-sans">
+    <div className="pt-24 px-4 sm:px-6 md:px-8 w-full max-w-[1600px] mx-auto pb-16 animate-in fade-in duration-500 font-sans">
       {/* Shift Header & Action Toolbar */}
       <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/80 dark:bg-surface-container-low backdrop-blur-md p-5 rounded-3xl border border-primary/10 shadow-sm">
         <div className="flex items-center gap-4">
@@ -78,7 +83,7 @@ export default function AdminDashboard() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-black text-on-surface tracking-tight">
-                {d?.storeName || user?.brandName || 'The Coffee House - Quận 1'}
+                {d?.storeName || user?.storeName || user?.brandName || 'Cửa hàng hiện tại'}
               </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -111,6 +116,8 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </header>
+
+      {subscription && <section className="mb-6 rounded-2xl border border-primary/15 bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Gói dịch vụ hiện tại</p><h3 className="mt-1 text-xl font-black text-primary uppercase">{subscription.plan}</h3><p className="mt-1 text-sm text-on-surface-variant">{subscription.status === 'suspended' ? 'Gói đã hết hạn, một số tính năng đang bị khóa.' : subscription.daysRemaining != null ? `Còn ${subscription.daysRemaining} ngày dùng thử.` : 'Đang hoạt động.'}</p></div><div className="flex flex-wrap gap-2 text-xs"><span className="rounded-lg bg-surface-container-low px-3 py-2">Cửa hàng: {subscription.storesUsed ?? 0}/{subscription.maxStores}</span><span className="rounded-lg bg-surface-container-low px-3 py-2">Nhân viên: {subscription.staffUsed ?? 0}/{subscription.maxStaff}</span><Link to="/admin/subscription" className="rounded-lg bg-primary px-4 py-2 font-bold text-white">Xem gói & nâng cấp</Link></div></div></section>}
 
       {/* Critical Stock Alert Banner if any */}
       {d?.lowStockAlerts && d.lowStockAlerts.length > 0 && (
@@ -241,11 +248,11 @@ export default function AdminDashboard() {
           </div>
           <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Thời Gian Phục Vụ TB</p>
           <h3 className="text-2xl font-black text-on-surface mt-1">
-            {d?.avgFulfillmentMinutes ?? 5.8} <span className="text-sm font-semibold text-on-surface-variant">phút/đơn</span>
+            {d && d.avgFulfillmentMinutes > 0 ? d.avgFulfillmentMinutes : '—'} <span className="text-sm font-semibold text-on-surface-variant">{d && d.avgFulfillmentMinutes > 0 ? 'phút/đơn' : 'chưa có dữ liệu'}</span>
           </h3>
           <p className="mt-3 pt-3 border-t border-outline-variant/10 text-xs text-on-surface-variant flex items-center justify-between">
             <span>Tiêu chuẩn quán: <strong>&lt; 8 phút</strong></span>
-            <span className="text-emerald-700 font-bold">Rất tốt</span>
+            <span className={d && d.avgFulfillmentMinutes > 0 ? 'text-emerald-700 font-bold' : 'text-on-surface-variant font-bold'}>{d && d.avgFulfillmentMinutes > 0 ? 'Rất tốt' : 'Chưa có đơn hoàn tất'}</span>
           </p>
         </div>
       </section>

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { inventoryApi, menuApi } from '../../api/apis';
 import { useStore } from '../../store/useStore';
 import { useAuthStore } from '../../store/authStore';
+import InventoryAiChat from '../../components/inventory/InventoryAiChat';
+import { useNotification } from '../../components/NotificationProvider';
 import type {
   IngredientDto,
   InventoryStockDto,
@@ -13,11 +15,12 @@ import type {
 } from '../../types/apiTypes';
 
 export default function InventoryManagement() {
+  const { confirm } = useNotification();
   const { currentStoreId } = useStore();
   const { user } = useAuthStore();
   // Đảm bảo lấy đúng mã cửa hàng và tenant của chủ quán đang đăng nhập
-  const storeId = user?.storeId || currentStoreId || 1;
-  const tenantId = user?.tenantId || 1;
+  const storeId = user?.storeId || currentStoreId;
+  const tenantId = user?.tenantId;
 
   // Active Tab: 'stock' | 'recipes' | 'audit'
   const [activeTab, setActiveTab] = useState<'stock' | 'recipes' | 'audit'>('stock');
@@ -267,6 +270,10 @@ export default function InventoryManagement() {
         });
         showToast('success', `Đã cập nhật nguyên liệu "${ingredientForm.name}".`);
       } else {
+        if (!tenantId || !storeId) {
+          showToast('error', 'Tài khoản chưa được gán tenant/cửa hàng.');
+          return;
+        }
         await inventoryApi.createIngredient({
           tenantId,
           storeId,
@@ -287,9 +294,7 @@ export default function InventoryManagement() {
   };
 
   const handleDeleteIngredient = async (id: number, name: string) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa nguyên liệu "${name}"? Thao tác này không thể hoàn tác.`)) {
-      return;
-    }
+    confirm({ tone: 'warning', title: 'Xóa nguyên liệu?', message: `Bạn có chắc chắn muốn xóa nguyên liệu "${name}"? Thao tác này không thể hoàn tác.`, confirmText: 'Xóa nguyên liệu', onConfirm: async () => {
     try {
       await inventoryApi.deleteIngredient(id);
       showToast('success', `Đã xóa nguyên liệu "${name}".`);
@@ -297,6 +302,7 @@ export default function InventoryManagement() {
     } catch (err: any) {
       showToast('error', err.response?.data?.message || 'Không thể xóa nguyên liệu đã có công thức hoặc giao dịch.');
     }
+    }});
   };
 
   // Handlers for Quick Stock-In
@@ -403,7 +409,7 @@ export default function InventoryManagement() {
   };
 
   const handleDeleteRecipe = async (recipeId: number, ingName: string) => {
-    if (!window.confirm(`Xóa định lượng "${ingName}" khỏi món này?`)) return;
+    confirm({ tone: 'warning', title: 'Gỡ nguyên liệu khỏi công thức?', message: `Xóa định lượng "${ingName}" khỏi món này?`, confirmText: 'Gỡ nguyên liệu', onConfirm: async () => {
     try {
       await inventoryApi.deleteRecipe(recipeId);
       showToast('success', 'Đã gỡ nguyên liệu khỏi công thức món.');
@@ -413,10 +419,11 @@ export default function InventoryManagement() {
     } catch (err: any) {
       showToast('error', err.response?.data?.message || 'Lỗi khi gỡ định lượng.');
     }
+    }});
   };
 
   return (
-    <div className="pt-24 pb-16 px-4 md:px-gutter max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-300">
+    <div className="pt-24 pb-16 px-4 md:px-gutter w-full max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-3 duration-300">
       {/* Toast Notification */}
       {notification && (
         <div
@@ -648,7 +655,7 @@ export default function InventoryManagement() {
           {/* Stock Table */}
           <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[1100px] text-left border-collapse">
                 <thead className="bg-surface-container-low text-xs uppercase tracking-wider text-on-surface-variant font-semibold">
                   <tr>
                     <th className="px-5 py-4">Nguyên Liệu</th>
@@ -917,7 +924,7 @@ export default function InventoryManagement() {
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full min-w-[900px] text-left border-collapse">
                           <thead className="bg-surface-container-low text-xs uppercase tracking-wider text-on-surface-variant font-semibold">
                             <tr>
                               <th className="px-4 py-3 rounded-l-xl">Thành Phần Nguyên Liệu</th>
@@ -1114,7 +1121,7 @@ export default function InventoryManagement() {
 
             {/* Audit Log Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[1000px] text-left border-collapse">
                 <thead className="bg-surface-container-low text-xs uppercase tracking-wider text-on-surface-variant font-semibold">
                   <tr>
                     <th className="px-4 py-3 rounded-l-xl">Thời Gian</th>
@@ -1581,6 +1588,9 @@ export default function InventoryManagement() {
           </div>
         </div>
       )}
+
+      {/* Floating AI Inventory Chatbot */}
+      <InventoryAiChat storeId={storeId} lowStockCount={alerts.length} />
     </div>
   );
 }

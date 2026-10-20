@@ -1,3 +1,5 @@
+using System.Data;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using WebCafe.Backend.Common.Constants;
 using WebCafe.Backend.Common.Exceptions;
@@ -131,7 +133,7 @@ namespace WebCafe.Backend.Services.Implementation
             _inventoryService = inventoryService;
         }
 
-        public async Task<OrderDto> CreateOrderAsync(CreateOrderDto dto)
+        public async Task<OrderDto> CreateOrderAsync(CreateOrderDto dto, int? authenticatedCustomerId = null)
         {
             if (dto.Items == null || !dto.Items.Any())
             {
@@ -149,29 +151,73 @@ namespace WebCafe.Backend.Services.Implementation
 
             // 1. Kiểm tra Bàn
             Table? table = null;
-            if (dto.TableId.HasValue)
+            bool isQrOrder = string.Equals(dto.Source, "qr_table", StringComparison.OrdinalIgnoreCase);
+
+            if (isQrOrder && (!dto.TableId.HasValue || dto.TableId.Value <= 0))
             {
-                table = await _db.Tables.FirstOrDefaultAsync(t => t.TableId == dto.TableId.Value && t.StoreId == dto.StoreId);
-                if (table != null)
+                throw new ModelValidationException("TableId", "Đơn hàng gọi món tại bàn (QR) bắt buộc phải có thông tin bàn hợp lệ.");
+            }
+
+            if (dto.TableId.HasValue && dto.TableId.Value > 0)
+            {
+                table = await _db.Tables.FirstOrDefaultAsync(t => t.TableId == dto.TableId.Value && t.StoreId == dto.StoreId && t.IsActive);
+                if (table == null)
                 {
-                    table.Status = TableStatuses.Occupied;
+                    throw new NotFoundException("Bàn không tồn tại, đã ngưng hoạt động hoặc không thuộc chi nhánh này.");
                 }
             }
 
-            // 2. Xử lý Khách hàng & Điểm thưởng
-            Customer? customer = null;
-            if (!string.IsNullOrWhiteSpace(dto.CustomerPhone))
+            if (isQrOrder)
             {
-                var phone = dto.CustomerPhone.Trim();
-                customer = await _db.Customers.FirstOrDefaultAsync(c => c.TenantId == store.TenantId && c.Phone == phone);
+                if (table == null || string.IsNullOrWhiteSpace(dto.TableToken) ||
+                    !string.Equals(table.QrToken, dto.TableToken, StringComparison.Ordinal))
+                    throw new AppException("Mã QR bàn không hợp lệ hoặc đã hết hiệu lực. Vui lòng quét lại mã QR.");
+            }
+
+            var isCustomerCashOrder = isQrOrder && string.Equals(dto.PaymentMethod, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase);
+            if (isCustomerCashOrder && table != null)
+            {
+                var expireBefore = DateTime.UtcNow.AddMinutes(-10);
+                var staleOrders = await _db.Orders.Where(o => o.StoreId == store.StoreId &&
+                    o.Status == OrderStatus.Pending && o.CreatedAt < expireBefore).ToListAsync();
+                foreach (var stale in staleOrders) stale.Status = OrderStatus.Expired;
+
+                var pendingCashCount = await _db.Orders.CountAsync(o => o.StoreId == store.StoreId &&
+                    o.TableId == table.TableId && o.Status == OrderStatus.Pending && o.CreatedAt >= expireBefore);
+                if (pendingCashCount >= 3)
+                    throw new AppException("Bàn đã có 3 đơn tiền mặt đang chờ xác nhận. Vui lòng chờ nhân viên xử lý.");
+            }
+
+            if (dto.Items.Sum(i => i.Quantity) > 30)
+                throw new ModelValidationException("Items", "Mỗi đơn chỉ được tối đa 30 phần.");
+
+            // 2. Xử lý Khách hàng & Điểm thưởng (Multi-Tenant SaaS Customer Support)
+            Customer? customer = null;
+            string? lookupPhone = null;
+
+            if (authenticatedCustomerId.HasValue)
+            {
+                var authCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.CustomerId == authenticatedCustomerId.Value);
+                lookupPhone = authCustomer?.Phone ?? dto.CustomerPhone;
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.CustomerPhone))
+            {
+                lookupPhone = dto.CustomerPhone.Trim().Replace(" ", "");
+            }
+
+            if (!string.IsNullOrWhiteSpace(lookupPhone))
+            {
+                customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone == lookupPhone && c.TenantId == store.TenantId);
                 if (customer == null)
                 {
+                    // Tự động kích hoạt hồ sơ hội viên cho quán mới mà không cần tạo tài khoản riêng
                     customer = new Customer
                     {
                         TenantId = store.TenantId,
-                        Phone = phone,
-                        Name = dto.CustomerName?.Trim() ?? "Khách hàng",
+                        Phone = lookupPhone,
+                        Name = !string.IsNullOrWhiteSpace(dto.CustomerName) ? dto.CustomerName.Trim() : (dto.GuestName ?? "Khách hàng"),
                         TotalPoints = 0,
+                        TotalSpent = 0,
                         VisitCount = 1,
                         CreatedAt = DateTime.UtcNow,
                         LastVisitAt = DateTime.UtcNow
@@ -181,14 +227,17 @@ namespace WebCafe.Backend.Services.Implementation
                 }
                 else
                 {
-                    customer.VisitCount += 1;
-                    customer.LastVisitAt = DateTime.UtcNow;
                     if (!string.IsNullOrWhiteSpace(dto.CustomerName))
                     {
                         customer.Name = dto.CustomerName.Trim();
                     }
+                    customer.VisitCount += 1;
+                    customer.LastVisitAt = DateTime.UtcNow;
                 }
             }
+
+            if (dto.PointsToUse > 0 && customer == null)
+                throw new ForbiddenException("Đăng nhập tài khoản khách hàng để sử dụng điểm.");
 
             // 3. Tính toán tiền các Items
             decimal subTotal = 0;
@@ -267,10 +316,6 @@ namespace WebCafe.Backend.Services.Implementation
                 {
                     discountAmount = vResult.DiscountAmount;
                     appliedVoucher = await _db.Vouchers.FindAsync(vResult.VoucherId.Value);
-                    if (appliedVoucher != null)
-                    {
-                        appliedVoucher.UsedCount += 1;
-                    }
                 }
             }
 
@@ -281,20 +326,22 @@ namespace WebCafe.Backend.Services.Implementation
             {
                 pointsUsed = dto.PointsToUse;
                 pointsDiscount = pointsUsed * store.Tenant.PointsToMoney;
-                customer.TotalPoints -= pointsUsed;
-
-                _db.LoyaltyPoints.Add(new LoyaltyPoint
-                {
-                    CustomerId = customer.CustomerId,
-                    Points = -pointsUsed,
-                    Type = "redeem",
-                    Description = "Sử dụng điểm giảm giá đơn hàng"
-                });
             }
 
             decimal totalDiscount = discountAmount + pointsDiscount;
             if (totalDiscount > subTotal) totalDiscount = subTotal;
             decimal totalAmount = subTotal - totalDiscount;
+
+            if (isCustomerCashOrder && !string.IsNullOrWhiteSpace(dto.GuestId))
+            {
+                var recentGuestOrder = await _db.Orders.AnyAsync(o => o.StoreId == store.StoreId &&
+                    o.GuestId == dto.GuestId && o.CreatedAt >= DateTime.UtcNow.AddSeconds(-30) &&
+                    o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Expired);
+                if (recentGuestOrder)
+                    throw new AppException("Bạn vừa gửi một đơn. Vui lòng chờ 30 giây trước khi gửi tiếp.");
+            }
+            if (isCustomerCashOrder && totalAmount > 2000000m)
+                throw new AppException("Đơn tiền mặt chưa xác nhận không được vượt quá 2.000.000đ.");
 
             // 6. Tính điểm tích lũy sau đơn
             int pointsEarned = 0;
@@ -305,24 +352,37 @@ namespace WebCafe.Backend.Services.Implementation
 
             var orderCode = $"OD-{DateTime.UtcNow:yyMMdd}-{Random.Shared.Next(1000, 9999)}";
 
+            bool isPosStaffOrder = dto.Source == "pos_staff";
+            if (isPosStaffOrder && dto.PaymentMethod != "cash" && dto.PaymentMethod != PaymentMethods.Cash &&
+                dto.PaymentMethod != "payos" && dto.PaymentMethod != PaymentMethods.PayOS)
+                throw new AppException("Phương thức thanh toán tại quầy không hợp lệ.");
+            bool isCashPos = isPosStaffOrder && (dto.PaymentMethod == "cash" || dto.PaymentMethod == PaymentMethods.Cash);
+            bool isPayOSPos = isPosStaffOrder && (dto.PaymentMethod == "payos" || dto.PaymentMethod == PaymentMethods.PayOS);
+
+            string initialStatus = isCashPos 
+                ? OrderStatus.Paid 
+                : (isPayOSPos ? OrderStatus.AwaitingPayment : (isCustomerCashOrder ? OrderStatus.Pending : (!isPosStaffOrder ? OrderStatus.AwaitingPayment : OrderStatus.Pending)));
+
             var order = new Order
             {
                 TenantId = store.TenantId,
                 StoreId = store.StoreId,
                 OrderCode = orderCode,
-                TableId = dto.TableId,
+                TableId = table?.TableId,
                 CustomerId = customer?.CustomerId,
                 
                 // Guest Order Support
                 GuestId = dto.GuestId,
+                PaymentAccessToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant(),
                 GuestName = dto.GuestName ?? dto.CustomerName,
                 GuestPhone = dto.GuestPhone ?? dto.CustomerPhone,
                 
-                Status = OrderStatus.Pending,
+                Status = initialStatus,
                 SubTotal = subTotal,
                 DiscountAmount = totalDiscount,
                 PointsUsed = pointsUsed,
                 PointsEarned = pointsEarned,
+                AppliedVoucherId = appliedVoucher?.VoucherId,
                 TotalAmount = totalAmount,
                 Note = dto.Note,
                 CreatedAt = DateTime.UtcNow,
@@ -332,30 +392,126 @@ namespace WebCafe.Backend.Services.Implementation
             _db.Orders.Add(order);
             await _db.SaveChangesAsync();
 
-            // Ghi nhận VoucherUsage
-            if (appliedVoucher != null)
+            // Nếu là đơn tiền mặt tại quầy (isCashPos): tạo Payment Cash + trừ kho
+            if (isCashPos)
             {
-                _db.VoucherUsages.Add(new VoucherUsage
+                var payment = new Payment
                 {
-                    VoucherId = appliedVoucher.VoucherId,
-                    CustomerId = customer?.CustomerId,
                     OrderId = order.OrderId,
-                    DiscountAmount = discountAmount,
-                    UsedAt = DateTime.UtcNow
-                });
+                    Method = PaymentMethods.Cash,
+                    Amount = order.TotalAmount,
+                    Status = PaymentStatuses.Completed,
+                    PaidAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.Payments.Add(payment);
                 await _db.SaveChangesAsync();
+
+                try
+                {
+                    await _inventoryService.DeductInventoryForOrderAsync(order.OrderId, null);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Warning: Deduct inventory failed for cash POS order {order.OrderCode}: {ex.Message}");
+                }
+                await ApplyPostPaymentBenefitsAsync(order.OrderId);
             }
 
             var resultDto = (await GetByIdAsync(order.OrderId))!;
 
-            // Gửi SignalR Realtime đến Bếp / Thu ngân của Store
-            await _notificationService.NotifyNewOrderAsync(store.StoreId, resultDto);
-            if (table != null)
+            // Mô hình A tại quầy:
+            // 1. Đơn tiền mặt (isCashPos) hoặc đơn POS thông thường: Báo Bếp ngay và chiếm bàn
+            // 2. Đơn PayOS (isPayOSPos hoặc qr_table): Đơn ở awaiting_payment, chỉ kích hoạt sang Bếp khi khách quét PayOS xong
+            if (isCashPos || isCustomerCashOrder || (isPosStaffOrder && !isPayOSPos))
             {
-                await _notificationService.NotifyTableStatusChangedAsync(store.StoreId, table.TableId, TableStatuses.Occupied);
+                await _notificationService.NotifyNewOrderAsync(store.StoreId, resultDto);
+                if (table != null && !isCustomerCashOrder)
+                {
+                    table.Status = TableStatuses.Occupied;
+                    await _notificationService.NotifyTableStatusChangedAsync(store.StoreId, table.TableId, TableStatuses.Occupied);
+                }
             }
 
+            // This capability is returned only by the create-order endpoint.
+            resultDto.PaymentAccessToken = order.PaymentAccessToken;
+
             return resultDto;
+        }
+
+        public async Task ApplyPostPaymentBenefitsAsync(int orderId)
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var order = await _db.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.Tenant)
+                .FirstOrDefaultAsync(o => o.OrderId == orderId);
+
+            if (order == null) throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+            // Idempotency: post-payment effects must only be applied once.
+            if (order.PaymentActivatedAt.HasValue)
+            {
+                return;
+            }
+
+            if (order.Customer != null && order.PointsUsed > 0)
+            {
+                if (order.Customer.TotalPoints < order.PointsUsed)
+                    throw new AppException("Số điểm hiện tại không đủ để hoàn tất đơn hàng.");
+
+                order.Customer.TotalPoints -= order.PointsUsed;
+                _db.LoyaltyPoints.Add(new LoyaltyPoint
+                {
+                    CustomerId = order.Customer.CustomerId,
+                    OrderId = order.OrderId,
+                    Points = -order.PointsUsed,
+                    Type = "redeem",
+                    Description = "Sử dụng điểm giảm giá đơn hàng"
+                });
+            }
+
+            if (order.Customer != null)
+            {
+                order.Customer.TotalSpent += order.TotalAmount;
+                order.Customer.VisitCount += 1;
+                order.Customer.LastVisitAt = DateTime.UtcNow;
+                if (order.PointsEarned > 0)
+                {
+                    order.Customer.TotalPoints += order.PointsEarned;
+                    _db.LoyaltyPoints.Add(new LoyaltyPoint
+                    {
+                        CustomerId = order.Customer.CustomerId,
+                        OrderId = order.OrderId,
+                        Points = order.PointsEarned,
+                        Type = "earn",
+                        Description = "Tích điểm từ đơn hàng đã thanh toán"
+                    });
+                }
+            }
+
+            if (order.AppliedVoucherId.HasValue)
+            {
+                var voucher = await _db.Vouchers.FirstOrDefaultAsync(v => v.VoucherId == order.AppliedVoucherId.Value);
+                var alreadyUsed = await _db.VoucherUsages.AnyAsync(vu => vu.OrderId == order.OrderId);
+                if (voucher != null && !alreadyUsed)
+                {
+                    voucher.UsedCount += 1;
+                    _db.VoucherUsages.Add(new VoucherUsage
+                    {
+                        VoucherId = voucher.VoucherId,
+                        CustomerId = order.CustomerId,
+                        OrderId = order.OrderId,
+                        DiscountAmount = Math.Max(0, order.DiscountAmount - (order.PointsUsed * (order.Tenant?.PointsToMoney ?? 0))),
+                        UsedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            order.PaymentActivatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
 
         public async Task<OrderDto?> GetByIdAsync(int orderId)
@@ -390,10 +546,20 @@ namespace WebCafe.Backend.Services.Implementation
 
         public async Task<List<OrderDto>> GetActiveOrdersByStoreAsync(int storeId)
         {
+            var expireBefore = DateTime.UtcNow.AddMinutes(-10);
+            var staleOrders = await _db.Orders
+                .Where(o => o.StoreId == storeId && o.Status == OrderStatus.Pending && o.CreatedAt < expireBefore)
+                .ToListAsync();
+            if (staleOrders.Count > 0)
+            {
+                foreach (var stale in staleOrders) stale.Status = OrderStatus.Expired;
+                await _db.SaveChangesAsync();
+            }
             var today = DateTime.UtcNow.Date;
             var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Confirmed, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Served };
             var orders = await _db.Orders
-                .Where(o => o.StoreId == storeId && (activeStatuses.Contains(o.Status) || (o.Status == OrderStatus.Paid && o.CreatedAt >= today)))
+                .AsSplitQuery()
+                .Where(o => o.StoreId == storeId && (activeStatuses.Contains(o.Status) || ((o.Status == OrderStatus.Paid || o.Status == OrderStatus.Completed) && o.CreatedAt >= today)))
                 .Include(o => o.Store)
                 .Include(o => o.Table)
                 .Include(o => o.Customer)
@@ -403,7 +569,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
 
-            return orders.Select(MapToDto).ToList();
+            return orders.DistinctBy(o => o.OrderId).Select(MapToDto).ToList();
         }
 
         public async Task<PaginationRes<OrderDto>> SearchOrdersAsync(int storeId, PagedReq req, string? status = null)
@@ -444,9 +610,47 @@ namespace WebCafe.Backend.Services.Implementation
             var order = await _db.Orders.Include(o => o.Table).FirstOrDefaultAsync(o => o.OrderId == orderId);
             if (order == null) throw new NotFoundException("Không tìm thấy đơn hàng.");
 
+            if (!IsAllowedTransition(order.Status, newStatus))
+            {
+                throw new AppException($"Không thể chuyển trạng thái đơn từ '{order.Status}' sang '{newStatus}'.");
+            }
+
+            if (newStatus == OrderStatus.Confirmed && order.Status == OrderStatus.AwaitingPayment)
+            {
+                var hasCompletedPayment = await _db.Payments.AnyAsync(p => p.OrderId == orderId && p.Status == PaymentStatuses.Completed);
+                if (!hasCompletedPayment)
+                    throw new AppException("Không thể xác nhận đơn chuyển khoản khi chưa có giao dịch thành công.");
+            }
+
+            // Staff may mark a cash order as paid after serving it. PayOS orders
+            // already have a completed payment and will not create a duplicate.
+            if (newStatus == OrderStatus.Paid)
+            {
+                var hasCompletedPayment = await _db.Payments.AnyAsync(p => p.OrderId == orderId && p.Status == PaymentStatuses.Completed);
+                if (!hasCompletedPayment)
+                {
+                    _db.Payments.Add(new Payment
+                    {
+                        OrderId = orderId,
+                        Method = PaymentMethods.Cash,
+                        Amount = order.TotalAmount,
+                        Status = PaymentStatuses.Completed,
+                        PaidAt = DateTime.UtcNow,
+                        ProcessedByStaffId = staffId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
             order.Status = newStatus;
             order.UpdatedAt = DateTime.UtcNow;
             if (staffId.HasValue) order.StaffId = staffId.Value;
+
+            if ((newStatus == OrderStatus.Confirmed || newStatus == OrderStatus.Preparing) && order.Table != null)
+            {
+                order.Table.Status = TableStatuses.Occupied;
+                await _notificationService.NotifyTableStatusChangedAsync(order.StoreId, order.Table.TableId, TableStatuses.Occupied);
+            }
 
             // Nếu đơn đã phục vụ, thanh toán, hoàn thành hoặc hủy: giải phóng bàn
             if (newStatus == OrderStatus.Paid || newStatus == OrderStatus.Served || newStatus == "completed" || newStatus == OrderStatus.Cancelled)
@@ -457,24 +661,6 @@ namespace WebCafe.Backend.Services.Implementation
                     await _notificationService.NotifyTableStatusChangedAsync(order.StoreId, order.Table.TableId, TableStatuses.Available);
                 }
 
-                // Tích điểm cho khách khi đơn hoàn tất
-                if ((newStatus == OrderStatus.Paid || newStatus == "completed" || newStatus == OrderStatus.Served) && order.CustomerId.HasValue && order.PointsEarned > 0)
-                {
-                    var customer = await _db.Customers.FindAsync(order.CustomerId.Value);
-                    if (customer != null)
-                    {
-                        customer.TotalPoints += order.PointsEarned;
-                        customer.TotalSpent += order.TotalAmount;
-                        _db.LoyaltyPoints.Add(new LoyaltyPoint
-                        {
-                            CustomerId = customer.CustomerId,
-                            OrderId = order.OrderId,
-                            Points = order.PointsEarned,
-                            Type = "earn",
-                            Description = $"Tích điểm đơn hàng {order.OrderCode}"
-                        });
-                    }
-                }
             }
 
             // Tự động trừ kho theo BOM khi hoàn thành pha chế (ready), phục vụ (served) hoặc thanh toán (paid/completed)
@@ -498,12 +684,29 @@ namespace WebCafe.Backend.Services.Implementation
             return (await GetByIdAsync(order.OrderId))!;
         }
 
+        private static bool IsAllowedTransition(string current, string next)
+        {
+            if (string.Equals(current, next, StringComparison.OrdinalIgnoreCase)) return true;
+            return current switch
+            {
+                OrderStatus.AwaitingPayment => next is OrderStatus.Confirmed or OrderStatus.Paid or OrderStatus.Cancelled,
+                OrderStatus.Pending => next is OrderStatus.Confirmed or OrderStatus.Cancelled or OrderStatus.Paid,
+                OrderStatus.Confirmed => next is OrderStatus.Preparing or OrderStatus.Cancelled or OrderStatus.Paid,
+                OrderStatus.Preparing => next is OrderStatus.Ready or OrderStatus.Cancelled,
+                OrderStatus.Ready => next is OrderStatus.Served or OrderStatus.Cancelled,
+                OrderStatus.Served => next is OrderStatus.Paid or OrderStatus.Completed,
+                OrderStatus.Paid => next == OrderStatus.Completed,
+                _ => false
+            };
+        }
+
         private static OrderDto MapToDto(Order o)
         {
             return new OrderDto
             {
                 OrderId = o.OrderId,
                 TenantId = o.TenantId,
+                TenantName = o.Tenant?.Name ?? o.Store?.Tenant?.Name ?? string.Empty,
                 StoreId = o.StoreId,
                 StoreName = o.Store?.Name ?? string.Empty,
                 OrderCode = o.OrderCode,
@@ -515,6 +718,7 @@ namespace WebCafe.Backend.Services.Implementation
                 
                 // Guest Order Fields
                 GuestId = o.GuestId,
+                PaymentAccessToken = null,
                 GuestName = o.GuestName,
                 GuestPhone = o.GuestPhone,
                 
@@ -568,18 +772,48 @@ namespace WebCafe.Backend.Services.Implementation
 
         public async Task<PaymentResultDto> ProcessPaymentAsync(CreatePaymentDto dto, int? staffId = null)
         {
+            if (!string.Equals(dto.Method, PaymentMethods.Cash, StringComparison.OrdinalIgnoreCase))
+                throw new AppException("Thanh toán thủ công chỉ hỗ trợ tiền mặt; PayOS/VietQR phải được xác nhận qua webhook.");
+
             var order = await _db.Orders
                 .Include(o => o.Store)
                 .FirstOrDefaultAsync(o => o.OrderId == dto.OrderId);
 
             if (order == null) throw new NotFoundException("Không tìm thấy đơn hàng.");
 
+            if (dto.Amount != order.TotalAmount)
+                throw new AppException("Số tiền thanh toán không khớp với đơn hàng.");
+
+            var transactionRef = dto.TransactionRef ?? $"TXN-{DateTime.UtcNow:yyMMddHHmmss}-{Guid.NewGuid():N}";
+            var existingPayment = await _db.Payments.FirstOrDefaultAsync(p => p.TransactionRef == transactionRef);
+            if (existingPayment != null)
+            {
+                if (existingPayment.OrderId != order.OrderId)
+                    throw new AppException("Mã giao dịch đã được sử dụng cho đơn hàng khác.");
+                if (existingPayment.Status != PaymentStatuses.Completed || existingPayment.Method != PaymentMethods.Cash)
+                    throw new AppException("Mã giao dịch đã được sử dụng cho một giao dịch khác.");
+                return new PaymentResultDto
+                {
+                    PaymentId = existingPayment.PaymentId,
+                    OrderId = existingPayment.OrderId,
+                    Method = existingPayment.Method,
+                    Amount = existingPayment.Amount,
+                    Status = existingPayment.Status,
+                    QrCodeUrl = null
+                };
+            }
+
+            if (await _db.Payments.AnyAsync(p => p.OrderId == order.OrderId && p.Status == PaymentStatuses.Completed))
+                throw new AppException("Đơn hàng đã có giao dịch thanh toán thành công.");
+            if (order.Status is not (OrderStatus.AwaitingPayment or OrderStatus.Pending or OrderStatus.Confirmed or OrderStatus.Served))
+                throw new AppException($"Không thể thu tiền mặt cho đơn ở trạng thái '{order.Status}'.");
+
             var payment = new Payment
             {
                 OrderId = order.OrderId,
                 Method = dto.Method,
-                Amount = dto.Amount > 0 ? dto.Amount : order.TotalAmount,
-                TransactionRef = dto.TransactionRef ?? $"TXN-{DateTime.UtcNow:yyMMddHHmmss}",
+                Amount = order.TotalAmount,
+                TransactionRef = transactionRef,
                 Status = PaymentStatuses.Completed,
                 PaidAt = DateTime.UtcNow,
                 ProcessedByStaffId = staffId,
@@ -603,6 +837,8 @@ namespace WebCafe.Backend.Services.Implementation
                 // Có thể gửi notification để staff xử lý thủ công
                 Console.WriteLine($"Warning: Failed to deduct inventory for order {order.OrderCode}: {ex.Message}");
             }
+
+            await _orderService.ApplyPostPaymentBenefitsAsync(order.OrderId);
 
             string? qrUrl = null;
             if (dto.Method == PaymentMethods.VietQR && order.Store != null)
@@ -642,18 +878,23 @@ namespace WebCafe.Backend.Services.Implementation
             // Today's orders
             var todayAllOrders = await _db.Orders
                 .Include(o => o.Table)
+                .Include(o => o.Payments)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.MenuItem)
                 .Where(o => o.StoreId == storeId && o.CreatedAt >= today)
                 .ToListAsync();
 
-            var todayPaidOrders = todayAllOrders.Where(o => o.Status == OrderStatus.Paid).ToList();
+            var todayPaidOrders = todayAllOrders
+                .Where(o => o.Status == OrderStatus.Paid || o.Payments.Any(p => p.Status == PaymentStatuses.Completed))
+                .ToList();
             var todayRevenue = todayPaidOrders.Sum(o => o.TotalAmount);
 
             // Yesterday revenue until the same time of day
             var yesterdayTimeLimit = yesterday.Add(now.TimeOfDay);
             var yesterdayPaidOrders = await _db.Orders
-                .Where(o => o.StoreId == storeId && o.CreatedAt >= yesterday && o.CreatedAt <= yesterdayTimeLimit && o.Status == OrderStatus.Paid)
+                .Include(o => o.Payments)
+                .Where(o => o.StoreId == storeId && o.CreatedAt >= yesterday && o.CreatedAt <= yesterdayTimeLimit && 
+                    (o.Status == OrderStatus.Paid || o.Payments.Any(p => p.Status == PaymentStatuses.Completed)))
                 .ToListAsync();
             var yesterdayRevenue = yesterdayPaidOrders.Sum(o => o.TotalAmount);
 
@@ -675,15 +916,8 @@ namespace WebCafe.Backend.Services.Implementation
 
             var cashRevenue = todayPayments.Where(p => p.Method == PaymentMethods.Cash).Sum(p => p.Amount);
             var bankTransferRevenue = todayPayments.Where(p => p.Method != PaymentMethods.Cash).Sum(p => p.Amount);
-            if (cashRevenue == 0 && bankTransferRevenue == 0 && todayRevenue > 0)
-            {
-                // Fallback estimate if payments table wasn't populated separately
-                bankTransferRevenue = todayRevenue * 0.7m;
-                cashRevenue = todayRevenue * 0.3m;
-            }
-
             // Queue stats
-            var pendingCount = todayAllOrders.Count(o => o.Status == OrderStatus.Pending);
+            var pendingCount = todayAllOrders.Count(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.Confirmed);
             var preparingCount = todayAllOrders.Count(o => o.Status == OrderStatus.Preparing);
             var readyCount = todayAllOrders.Count(o => o.Status == OrderStatus.Ready);
             var servedCount = todayAllOrders.Count(o => o.Status == OrderStatus.Served || o.Status == OrderStatus.Paid);
@@ -699,7 +933,10 @@ namespace WebCafe.Backend.Services.Implementation
             foreach (var t in tables)
             {
                 var tableOrder = activeOrders.FirstOrDefault(o => o.TableId == t.TableId || (o.Table != null && o.Table.TableNumber == t.TableNumber));
-                var isOccupied = t.Status == TableStatuses.Occupied || tableOrder != null;
+                // A table is occupied on the dashboard only while it has an active
+                // order. This prevents a stale Table.Status value from showing a
+                // new store as occupied before it has served anyone.
+                var isOccupied = tableOrder != null;
                 var minutes = 0;
                 if (tableOrder != null)
                 {
@@ -724,6 +961,19 @@ namespace WebCafe.Backend.Services.Implementation
             var occupiedTables = activeTablesList.Count(t => t.Status == "Occupied");
             var availableTables = totalTables - occupiedTables;
             var occupancyPercent = totalTables > 0 ? Math.Round((double)occupiedTables / totalTables * 100, 1) : 0;
+
+            // Average fulfillment time for completed orders today. Do not invent a
+            // value for a new store that has no completed orders yet.
+            var fulfillmentDurations = todayAllOrders
+                .Where(o => (o.Status == OrderStatus.Served || o.Status == OrderStatus.Paid || o.Status == OrderStatus.Completed)
+                    && o.UpdatedAt.HasValue
+                    && o.UpdatedAt.Value >= o.CreatedAt)
+                .Select(o => (o.UpdatedAt!.Value - o.CreatedAt).TotalMinutes)
+                .Where(minutes => minutes >= 0)
+                .ToList();
+            var avgFulfillmentMinutes = fulfillmentDurations.Count > 0
+                ? Math.Round(fulfillmentDurations.Average(), 1)
+                : 0;
 
             // Low stock alerts
             var stocks = await _db.InventoryStocks
@@ -793,7 +1043,7 @@ namespace WebCafe.Backend.Services.Implementation
                 PreparingOrdersCount = preparingCount,
                 ReadyOrdersCount = readyCount,
                 ServedOrdersCount = servedCount,
-                AvgFulfillmentMinutes = 6.5,
+                AvgFulfillmentMinutes = avgFulfillmentMinutes,
                 TotalTables = totalTables,
                 OccupiedTables = occupiedTables,
                 AvailableTables = availableTables,
@@ -808,16 +1058,18 @@ namespace WebCafe.Backend.Services.Implementation
         public async Task<BusinessAnalyticsReportDto> GetBusinessAnalyticsReportAsync(int storeId, DateTime fromDate, DateTime toDate)
         {
             var store = await _db.Stores.FirstOrDefaultAsync(s => s.StoreId == storeId);
-            var tenantId = store?.TenantId ?? 1;
+            var tenantId = store?.TenantId ?? 0;
+            var toDateExclusive = toDate.Date.AddDays(1);
+            var completedStatuses = new[] { OrderStatus.Paid, OrderStatus.Completed };
 
             var orders = await _db.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(i => i.MenuItem)
                         .ThenInclude(m => m!.Category)
                 .Where(o => o.StoreId == storeId && 
-                            o.Status == OrderStatus.Paid &&
+                            completedStatuses.Contains(o.Status) &&
                             o.CreatedAt >= fromDate && 
-                            o.CreatedAt <= toDate)
+                            o.CreatedAt < toDateExclusive)
                 .ToListAsync();
 
             var grossRevenue = orders.Sum(o => o.SubTotal > 0 ? o.SubTotal : o.TotalAmount);
@@ -826,9 +1078,11 @@ namespace WebCafe.Backend.Services.Implementation
             var totalOrders = orders.Count;
             var avgOrderValue = totalOrders > 0 ? netRevenue / totalOrders : 0;
 
-            // Estimated COGS (Cost of Goods Sold ~ 30% or from recipes)
-            var estimatedCOGS = Math.Round(netRevenue * 0.32m, 0);
-            var grossProfit = netRevenue - estimatedCOGS;
+            // There is no ingredient purchase-price field in the current schema,
+            // so never invent a percentage. COGS remains zero until recipe costs
+            // are configured with real unit prices.
+            var estimatedCOGS = 0m;
+            var grossProfit = estimatedCOGS > 0 ? netRevenue - estimatedCOGS : 0;
             var grossMarginPercent = netRevenue > 0 ? Math.Round((double)(grossProfit / netRevenue) * 100, 1) : 0;
 
             // Daily Trend
@@ -839,7 +1093,7 @@ namespace WebCafe.Backend.Services.Implementation
                     Date = g.Key.ToString("dd/MM"),
                     Revenue = g.Sum(o => o.TotalAmount),
                     OrdersCount = g.Count(),
-                    EstimatedProfit = g.Sum(o => o.TotalAmount) * 0.68m
+                    EstimatedProfit = 0
                 })
                 .OrderBy(x => x.Date)
                 .ToList();
@@ -899,12 +1153,6 @@ namespace WebCafe.Backend.Services.Implementation
                 })
                 .ToList();
 
-            if (paymentMethodBreakdown.Count == 0 && netRevenue > 0)
-            {
-                paymentMethodBreakdown.Add(new PaymentMethodStatsDto { Method = "VietQR", Count = (int)(totalOrders * 0.65), TotalAmount = netRevenue * 0.65m, Percentage = 65.0 });
-                paymentMethodBreakdown.Add(new PaymentMethodStatsDto { Method = "Tiền mặt", Count = (int)(totalOrders * 0.35), TotalAmount = netRevenue * 0.35m, Percentage = 35.0 });
-            }
-
             // Channel Breakdown (Dine-in vs Takeaway)
             var dineInOrders = orders.Where(o => o.TableId.HasValue).ToList();
             var takeawayOrders = orders.Where(o => !o.TableId.HasValue).ToList();
@@ -918,14 +1166,14 @@ namespace WebCafe.Backend.Services.Implementation
                     Channel = "Tại Quán (Dine-in)",
                     OrderCount = dineInOrders.Count,
                     Revenue = dineInRev,
-                    Percentage = netRevenue > 0 ? Math.Round((double)(dineInRev / netRevenue) * 100, 1) : 80.0
+                    Percentage = netRevenue > 0 ? Math.Round((double)(dineInRev / netRevenue) * 100, 1) : 0
                 },
                 new ChannelSalesDto
                 {
                     Channel = "Mang Đi (Takeaway)",
                     OrderCount = takeawayOrders.Count,
                     Revenue = takeawayRev,
-                    Percentage = netRevenue > 0 ? Math.Round((double)(takeawayRev / netRevenue) * 100, 1) : 20.0
+                    Percentage = netRevenue > 0 ? Math.Round((double)(takeawayRev / netRevenue) * 100, 1) : 0
                 }
             };
 
@@ -966,9 +1214,9 @@ namespace WebCafe.Backend.Services.Implementation
                     .ThenInclude(m => m!.Category)
                 .Where(oi => oi.Order != null &&
                             oi.Order.StoreId == storeId &&
-                            oi.Order.Status == OrderStatus.Paid &&
+                            (oi.Order.Status == OrderStatus.Paid || oi.Order.Status == OrderStatus.Completed) &&
                             oi.Order.CreatedAt >= fromDate &&
-                            oi.Order.CreatedAt <= toDate)
+                            oi.Order.CreatedAt < toDate.Date.AddDays(1))
                 .ToListAsync();
 
             var menuItemsSold = orderItems
@@ -983,7 +1231,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .Select(g =>
                 {
                     var price = g.Key.BasePrice;
-                    var cost = Math.Round(price * 0.32m, 0); // COGS estimate
+                    var cost = 0m; // No unit ingredient cost is stored yet.
                     var margin = price - cost;
                     var soldCount = g.Sum(x => x.Quantity);
                     var totalRev = g.Sum(x => x.SubTotal);
@@ -998,44 +1246,13 @@ namespace WebCafe.Backend.Services.Implementation
                         BasePrice = price,
                         EstimatedCost = cost,
                         MarginPerUnit = margin,
-                        MarginPercent = price > 0 ? Math.Round((double)(margin / price) * 100, 1) : 68.0,
+                        MarginPercent = price > 0 ? Math.Round((double)(margin / price) * 100, 1) : 0,
                         SoldCount = soldCount,
                         TotalRevenue = totalRev,
                         TotalProfit = totalProfit
                     };
                 })
                 .ToList();
-
-            // If few items sold in test data, load active menu items as basis
-            if (menuItemsSold.Count < 4)
-            {
-                var store = await _db.Stores.FirstOrDefaultAsync(s => s.StoreId == storeId);
-                var tenantId = store?.TenantId ?? 1;
-                var dbItems = await _db.MenuItems.Include(m => m.Category).Where(m => m.TenantId == tenantId && !m.IsDeleted).ToListAsync();
-                foreach (var itm in dbItems)
-                {
-                    if (!menuItemsSold.Any(x => x.MenuItemId == itm.MenuItemId))
-                    {
-                        var price = itm.BasePrice;
-                        var cost = Math.Round(price * 0.32m, 0);
-                        var margin = price - cost;
-                        menuItemsSold.Add(new MenuEngineeringItemDto
-                        {
-                            MenuItemId = itm.MenuItemId,
-                            Name = itm.Name,
-                            CategoryName = itm.Category?.Name ?? "Đồ Uống",
-                            ImageUrl = itm.ImageUrl,
-                            BasePrice = price,
-                            EstimatedCost = cost,
-                            MarginPerUnit = margin,
-                            MarginPercent = 68.0,
-                            SoldCount = 15,
-                            TotalRevenue = price * 15,
-                            TotalProfit = margin * 15
-                        });
-                    }
-                }
-            }
 
             var avgSold = menuItemsSold.Count > 0 ? menuItemsSold.Average(x => x.SoldCount) : 0;
             var avgMargin = menuItemsSold.Count > 0 ? menuItemsSold.Average(x => x.MarginPerUnit) : 0;
@@ -1123,8 +1340,9 @@ namespace WebCafe.Backend.Services.Implementation
                 .Where(c => c.TenantId == tenantId)
                 .ToListAsync();
 
-            var newCustomers = customers.Count(c => c.CreatedAt >= fromDate && c.CreatedAt <= toDate);
-            var activeCustomers = customers.Count(c => c.LastVisitAt >= fromDate && c.LastVisitAt <= toDate);
+            var toDateExclusive = toDate.Date.AddDays(1);
+            var newCustomers = customers.Count(c => c.CreatedAt >= fromDate && c.CreatedAt < toDateExclusive);
+            var activeCustomers = customers.Count(c => c.LastVisitAt >= fromDate && c.LastVisitAt < toDateExclusive);
 
             // Top customers by spending
             var topCustomers = customers
@@ -1165,7 +1383,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .Where(oi => oi.Order!.TenantId == tenantId &&
                             oi.Order.Status == OrderStatus.Paid &&
                             oi.Order.CreatedAt >= fromDate &&
-                            oi.Order.CreatedAt <= toDate)
+                            oi.Order.CreatedAt < toDate.Date.AddDays(1))
                 .GroupBy(oi => new 
                 { 
                     CategoryId = oi.MenuItem!.CategoryId, 

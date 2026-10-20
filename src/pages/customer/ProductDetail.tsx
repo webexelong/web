@@ -50,7 +50,7 @@ export default function ProductDetail() {
 
   const isOutOfStock = stockStatus[item.id.toString()] === false;
 
-  // Dynamic Sizes from API or fallback
+  // Dynamic Sizes purely from API (Data-Driven, no fake sizes)
   const availableSizes = useMemo(() => {
     if (item.rawDto?.sizes && item.rawDto.sizes.length > 0) {
       return item.rawDto.sizes.map((s: any) => ({
@@ -59,18 +59,17 @@ export default function ProductDetail() {
         extraPrice: s.extraPrice || 0
       }));
     }
-    return [
-      { sizeId: 1, name: 'Medium', extraPrice: 0 },
-      { sizeId: 2, name: 'Large', extraPrice: 15000 }
-    ];
+    return [];
   }, [item]);
 
-  const [selectedSize, setSelectedSize] = useState(availableSizes[0]);
+  const [selectedSize, setSelectedSize] = useState<any>(availableSizes[0] || null);
 
   // Update selected size when item changes
   useEffect(() => {
     if (availableSizes.length > 0) {
       setSelectedSize(availableSizes[0]);
+    } else {
+      setSelectedSize(null);
     }
   }, [availableSizes]);
 
@@ -92,9 +91,9 @@ export default function ProductDetail() {
 
     addToCart(item, {
       quantity,
-      sizeId: selectedSize.sizeId,
-      sizeName: selectedSize.name,
-      sizeExtra: selectedSize.extraPrice,
+      sizeId: selectedSize?.sizeId,
+      sizeName: selectedSize?.name,
+      sizeExtra: selectedSize?.extraPrice || 0,
       sugarLevel: `${sugar}%`,
       iceLevel: `${ice}%`,
       note: notes,
@@ -184,31 +183,33 @@ export default function ProductDetail() {
 
           {/* Customization Options */}
           <div className={`space-y-5 bg-white p-4 sm:p-6 rounded-2xl shadow-xs border border-outline-variant/15 ${isOutOfStock ? 'opacity-60 pointer-events-none' : ''}`}>
-            {/* Size Selector */}
-            <div className="space-y-2">
-              <label className="text-xs sm:text-sm font-bold text-on-background block">Chọn Kích Cỡ</label>
-              <div className="grid grid-cols-2 gap-3">
-                {availableSizes.map((s) => (
-                  <button 
-                    key={s.sizeId}
-                    type="button"
-                    onClick={() => setSelectedSize(s)}
-                    className={`flex items-center justify-between p-3.5 sm:p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
-                      selectedSize.sizeId === s.sizeId 
-                        ? 'border-primary bg-secondary-container/20 text-primary font-bold shadow-xs' 
-                        : 'border-outline-variant/30 text-on-surface-variant hover:border-primary'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 text-xs sm:text-sm">
-                      <span className="material-symbols-outlined text-lg">coffee</span> {s.name}
-                    </span>
-                    <span className="text-xs font-semibold">
-                      {s.extraPrice > 0 ? `+${s.extraPrice.toLocaleString('vi-VN')}đ` : '+0đ'}
-                    </span>
-                  </button>
-                ))}
+            {/* Size Selector (Only shown if item has sizes configured) */}
+            {availableSizes.length > 0 && selectedSize && (
+              <div className="space-y-2">
+                <label className="text-xs sm:text-sm font-bold text-on-background block">Chọn Kích Cỡ</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {availableSizes.map((s) => (
+                    <button 
+                      key={s.sizeId}
+                      type="button"
+                      onClick={() => setSelectedSize(s)}
+                      className={`flex items-center justify-between p-3.5 sm:p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                        selectedSize?.sizeId === s.sizeId 
+                          ? 'border-primary bg-secondary-container/20 text-primary font-bold shadow-xs' 
+                          : 'border-outline-variant/30 text-on-surface-variant hover:border-primary'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                        <span className="material-symbols-outlined text-lg">coffee</span> {s.name}
+                      </span>
+                      <span className="text-xs font-semibold">
+                        {s.extraPrice > 0 ? `+${s.extraPrice.toLocaleString('vi-VN')}đ` : '+0đ'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Sliders for Sugar and Ice */}
             <div className="space-y-4 pt-1">
@@ -294,11 +295,6 @@ export default function ProductDetail() {
           </div>
         </section>
       </main>
-
-      {/* Footer */}
-      <footer className="w-full mt-auto bg-surface-container-highest dark:bg-surface-container border-t border-outline-variant/20 py-6 px-4 text-center text-xs text-on-surface-variant hidden md:block">
-        © 2024 AI-SMARTSERVE. Pha chế thủ công cho thói quen mỗi ngày của bạn.
-      </footer>
       
       <MobileBottomNav />
     </div>

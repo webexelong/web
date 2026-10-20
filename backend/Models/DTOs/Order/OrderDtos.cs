@@ -35,6 +35,7 @@ namespace WebCafe.Backend.Models.DTOs.Order
         public int StoreId { get; set; }
         
         public int? TableId { get; set; }
+        public string? TableToken { get; set; }
         
         [Phone(ErrorMessage = "Số điện thoại khách hàng không đúng định dạng.")]
         public string? CustomerPhone { get; set; }
@@ -57,6 +58,12 @@ namespace WebCafe.Backend.Models.DTOs.Order
         [Range(0, int.MaxValue, ErrorMessage = "Điểm sử dụng không hợp lệ.")]
         public int PointsToUse { get; set; } = 0;
         
+        // Order Source (qr_table vs pos_staff)
+        public string? Source { get; set; } = "qr_table";
+
+        // Payment Method for POS Orders (cash, payos)
+        public string? PaymentMethod { get; set; }
+
         [MaxLength(500, ErrorMessage = "Ghi chú không được vượt quá 500 ký tự.")]
         public string? Note { get; set; }
         
@@ -95,6 +102,7 @@ namespace WebCafe.Backend.Models.DTOs.Order
     {
         public int OrderId { get; set; }
         public int TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
         public int StoreId { get; set; }
         public string StoreName { get; set; } = string.Empty;
         public string OrderCode { get; set; } = string.Empty;
@@ -108,6 +116,7 @@ namespace WebCafe.Backend.Models.DTOs.Order
         public string? GuestId { get; set; }
         public string? GuestName { get; set; }
         public string? GuestPhone { get; set; }
+        public string? PaymentAccessToken { get; set; }
         
         public string Status { get; set; } = "pending";
         public decimal SubTotal { get; set; }
@@ -123,8 +132,8 @@ namespace WebCafe.Backend.Models.DTOs.Order
     public class UpdateOrderStatusDto
     {
         [Required(ErrorMessage = "Trạng thái đơn hàng là bắt buộc.")]
-        [RegularExpression(@"^(pending|confirmed|preparing|ready|served|paid|completed|cancelled)$", 
-            ErrorMessage = "Trạng thái phải là: pending, confirmed, preparing, ready, served, paid, completed hoặc cancelled.")]
+        [RegularExpression(@"^(pending|confirmed|preparing|ready|served|paid|completed|cancelled|awaiting_payment)$", 
+            ErrorMessage = "Trạng thái phải là: pending, confirmed, preparing, ready, served, paid, completed, cancelled hoặc awaiting_payment.")]
         public string Status { get; set; } = "confirmed";
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using WebCafe.Backend.Models.Common;
 
@@ -48,6 +48,13 @@ namespace WebCafe.Backend.Models.Entities
         [Required, MaxLength(256)]
         public string OwnerPasswordHash { get; set; } = string.Empty;
 
+        public bool OwnerEmailVerified { get; set; } = true;
+
+        [MaxLength(128)]
+        public string? EmailVerificationTokenHash { get; set; }
+
+        public DateTime? EmailVerificationExpiresAt { get; set; }
+
         [MaxLength(500)]
         public string? LogoUrl { get; set; }
 
@@ -74,6 +81,62 @@ namespace WebCafe.Backend.Models.Entities
         public ICollection<Voucher> Vouchers { get; set; } = new List<Voucher>();
     }
 
+    public class SubscriptionPlan
+    {
+        [Key] public int PlanId { get; set; }
+        [Required, MaxLength(50)] public string Code { get; set; } = string.Empty;
+        [Required, MaxLength(100)] public string Name { get; set; } = string.Empty;
+        [Column(TypeName = "decimal(12,0)")] public decimal MonthlyPrice { get; set; }
+        public int MaxStores { get; set; } = 1;
+        public int MaxStaff { get; set; } = 5;
+        public int MaxTablesPerStore { get; set; } = 20;
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public ICollection<SubscriptionPlanFeature> Features { get; set; } = new List<SubscriptionPlanFeature>();
+    }
+
+    public class SubscriptionPlanFeature
+    {
+        [Key] public int PlanFeatureId { get; set; }
+        public int PlanId { get; set; }
+        [Required, MaxLength(80)] public string FeatureCode { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; } = true;
+        public SubscriptionPlan? Plan { get; set; }
+    }
+
+    public class TenantSubscription
+    {
+        [Key] public int SubscriptionId { get; set; }
+        public int TenantId { get; set; }
+        public int PlanId { get; set; }
+        [Required, MaxLength(30)] public string Status { get; set; } = "trialing";
+        public DateTime StartsAt { get; set; } = DateTime.UtcNow;
+        public DateTime? TrialEndsAt { get; set; }
+        public DateTime? CurrentPeriodStart { get; set; }
+        public DateTime? CurrentPeriodEnd { get; set; }
+        public DateTime? GraceEndsAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public Tenant? Tenant { get; set; }
+        public SubscriptionPlan? Plan { get; set; }
+    }
+
+    public class SubscriptionBillingRecord
+    {
+        [Key] public int BillingRecordId { get; set; }
+        public int TenantId { get; set; }
+        public int SubscriptionId { get; set; }
+        [Required, MaxLength(30)] public string Status { get; set; } = "pending";
+        [Column(TypeName = "decimal(12,0)")] public decimal Amount { get; set; }
+        [MaxLength(50)] public string? ExternalReference { get; set; }
+        public DateTime BillingPeriodStart { get; set; }
+        public DateTime BillingPeriodEnd { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public Tenant? Tenant { get; set; }
+        public TenantSubscription? Subscription { get; set; }
+    }
+
     public class Store
     {
         [Key]
@@ -98,6 +161,15 @@ namespace WebCafe.Backend.Models.Entities
 
         [MaxLength(100)]
         public string? BankAccountName { get; set; }
+
+        [MaxLength(100)]
+        public string? PayOSClientId { get; set; }
+
+        [MaxLength(100)]
+        public string? PayOSApiKey { get; set; }
+
+        [MaxLength(100)]
+        public string? PayOSChecksumKey { get; set; }
 
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

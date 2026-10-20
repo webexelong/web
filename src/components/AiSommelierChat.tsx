@@ -73,8 +73,8 @@ export default function AiSommelierChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const storeId = currentStoreId || storeInfo?.storeId || 1;
-  const tenantId = storeInfo?.tenantId || 1;
+  const storeId = currentStoreId || storeInfo?.storeId || 0;
+  const tenantId = storeInfo?.tenantId || 0;
 
   const defaultWelcomeMessage: ChatMessage = {
     id: 'welcome',
@@ -469,17 +469,17 @@ export default function AiSommelierChat({
 
       {/* Starter Prompts Bar (when only welcome message) */}
       {messages.length === 1 && !loading && (
-        <div className="p-3 border-t border-stone-200/60 bg-amber-50/40 shrink-0">
-          <p className="text-[11px] font-semibold text-stone-500 mb-2 flex items-center gap-1">
+        <div className="p-2.5 sm:p-3 border-t border-stone-200/60 bg-amber-50/40 shrink-0">
+          <p className="text-[11px] font-semibold text-stone-500 mb-1.5 flex items-center gap-1">
             <Sparkles size={12} className="text-amber-600" />
             <span>Chủ đề gợi ý mở đầu câu chuyện:</span>
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+          <div className="flex sm:grid sm:grid-cols-2 gap-1.5 overflow-x-auto sm:overflow-visible pb-1 sm:pb-0">
             {STARTER_PROMPTS.map((prompt, i) => (
               <button
                 key={i}
                 onClick={() => handleSendMessage(prompt)}
-                className="text-left text-xs bg-white hover:bg-amber-100/70 border border-stone-200 hover:border-amber-400/60 text-stone-700 p-2 rounded-xl transition-all shadow-xs cursor-pointer"
+                className="whitespace-nowrap sm:whitespace-normal text-left text-xs bg-white hover:bg-amber-100/70 border border-stone-200 hover:border-amber-400/60 text-stone-700 px-3 py-2 sm:p-2 rounded-xl transition-all shadow-xs cursor-pointer shrink-0 sm:shrink"
               >
                 {prompt}
               </button>
@@ -718,7 +718,7 @@ export default function AiSommelierChat({
   // If embedded mode:
   if (mode === 'embedded') {
     return (
-      <div className={`rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl border border-stone-200/80 bg-white h-[calc(100dvh-220px)] sm:h-[640px] min-h-[500px] flex flex-col ${className}`}>
+      <div className={`rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg border border-stone-200/80 bg-white h-[calc(100dvh-170px)] sm:h-[650px] min-h-[440px] flex flex-col ${className}`}>
         {renderChatContent()}
       </div>
     );

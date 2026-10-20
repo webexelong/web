@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useStore } from '../../store/useStore';
 import { customerApi } from '../../api/apis';
 import type { OrderDto, PaginationRes } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
@@ -8,14 +9,17 @@ import MobileBottomNav from '../../components/MobileBottomNav';
 
 export default function OrderHistory() {
   const { isAuthenticated, user } = useAuthStore();
+  const { guestSession, currentStoreId } = useStore();
   const navigate = useNavigate();
 
   const [ordersData, setOrdersData] = useState<PaginationRes<OrderDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [filterStoreOnly, setFilterStoreOnly] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const activeStoreId = guestSession?.storeId || currentStoreId;
   const pageSize = 5;
 
   useEffect(() => {
@@ -24,10 +28,10 @@ export default function OrderHistory() {
       return;
     }
 
-    fetchOrders(page, statusFilter);
-  }, [isAuthenticated, user?.username, page, statusFilter]);
+    fetchOrders(page, statusFilter, filterStoreOnly);
+  }, [isAuthenticated, user?.username, page, statusFilter, filterStoreOnly]);
 
-  const fetchOrders = async (pageNum: number, status: string) => {
+  const fetchOrders = async (pageNum: number, status: string, storeOnly: boolean) => {
     if (!user?.username) return;
     setLoading(true);
     try {
@@ -36,6 +40,7 @@ export default function OrderHistory() {
         pageNumber: pageNum,
         pageSize,
         status: status === 'all' ? undefined : status,
+        storeId: storeOnly && activeStoreId > 0 ? activeStoreId : undefined,
       });
       setOrdersData(data);
     } catch (err) {
@@ -175,28 +180,51 @@ export default function OrderHistory() {
       </nav>
 
       <main className="flex-grow max-w-4xl mx-auto w-full px-4 py-6 space-y-6">
-        {/* Bộ lọc trạng thái */}
-        <section className="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 flex gap-1.5 overflow-x-auto custom-scrollbar">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'pending', label: 'Chờ duyệt' },
-            { id: 'preparing', label: 'Đang làm' },
-            { id: 'completed', label: 'Hoàn tất' },
-            { id: 'cancelled', label: 'Đã hủy' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleFilterChange(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                statusFilter === tab.id
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </section>
+        {/* Bộ lọc quán & trạng thái */}
+        <div className="space-y-2">
+          {activeStoreId > 0 && (
+            <div className="flex items-center gap-2 px-1">
+              <button
+                onClick={() => setFilterStoreOnly(false)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                  !filterStoreOnly ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                🌐 Tất cả các quán
+              </button>
+              <button
+                onClick={() => setFilterStoreOnly(true)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                  filterStoreOnly ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                📍 Chỉ quán hiện tại
+              </button>
+            </div>
+          )}
+
+          <section className="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 flex gap-1.5 overflow-x-auto custom-scrollbar">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'pending', label: 'Chờ duyệt' },
+              { id: 'preparing', label: 'Đang làm' },
+              { id: 'completed', label: 'Hoàn tất' },
+              { id: 'cancelled', label: 'Đã hủy' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleFilterChange(tab.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  statusFilter === tab.id
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </section>
+        </div>
 
         {/* Danh sách đơn hàng */}
         {loading ? (
@@ -233,19 +261,27 @@ export default function OrderHistory() {
                   {/* Card Header */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3.5">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-black text-gray-900 font-mono tracking-tight">
                           #{order.orderCode}
                         </span>
+                        {order.tenantName && (
+                          <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs">storefront</span>
+                            {order.tenantName}
+                          </span>
+                        )}
                         {order.tableNumber && (
-                          <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                          <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
                             Bàn {order.tableNumber}
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
-                        {new Date(order.createdAt).toLocaleString('vi-VN')}
-                        {order.storeName ? ` • ${order.storeName}` : ''}
+                      <div className="text-[11px] text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+                        <span>{new Date(order.createdAt).toLocaleString('vi-VN')}</span>
+                        {order.storeName && (
+                          <span>• Chi nhánh: <strong className="text-gray-600">{order.storeName}</strong></span>
+                        )}
                       </div>
                     </div>
 

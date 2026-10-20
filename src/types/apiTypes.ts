@@ -88,8 +88,14 @@ export interface CreateOrderItemDto {
 export interface CreateOrderDto {
   storeId: number;
   tableId?: number | null;
+  tableToken?: string | null;
   customerPhone?: string | null;
   customerName?: string | null;
+  guestId?: string | null;
+  guestName?: string | null;
+  guestPhone?: string | null;
+  source?: 'qr_table' | 'pos_staff';
+  paymentMethod?: 'cash' | 'payos' | 'unpaid' | string | null;
   voucherCode?: string | null;
   pointsToUse: number;
   note?: string | null;
@@ -123,6 +129,7 @@ export interface OrderItemDto {
 export interface OrderDto {
   orderId: number;
   tenantId: number;
+  tenantName?: string;
   storeId: number;
   storeName: string;
   orderCode: string;
@@ -134,7 +141,8 @@ export interface OrderDto {
   guestId?: string | null;
   guestName?: string | null;
   guestPhone?: string | null;
-  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'cancelled';
+  paymentAccessToken?: string | null;
+  status: 'awaiting_payment' | 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'completed' | 'cancelled' | 'done';
   subTotal: number;
   discountAmount: number;
   pointsUsed: number;
@@ -153,6 +161,7 @@ export interface TableDto {
   capacity: number;
   location?: string | null;
   qrCodeUrl?: string | null;
+  qrToken?: string | null;
   status: 'Available' | 'Occupied' | 'Reserved';
   isActive: boolean;
   activeOrderId?: number | null;
@@ -163,6 +172,7 @@ export interface TableDto {
 export interface LoginRequest {
   username: string;
   password: string;
+  storeId?: number;
 }
 
 export interface LoginResponse {
@@ -174,6 +184,80 @@ export interface LoginResponse {
   storeId?: number | null;
   storeName?: string | null;
   brandName?: string | null;
+}
+
+export interface OwnerSignupRequest {
+  email: string;
+  password: string;
+  storeName: string;
+  phone?: string;
+  plan?: string;
+}
+
+export interface OwnerSignupResponse {
+  tenantId: number;
+  storeId: number;
+  email: string;
+  plan: string;
+  trialEndsAt: string;
+  emailVerificationRequired: boolean;
+  emailSent: boolean;
+  verificationUrl?: string | null;
+}
+
+export interface MySubscriptionDto {
+  plan: string;
+  status: string;
+  trialEndsAt?: string | null;
+  daysRemaining?: number | null;
+  maxStores?: number;
+  maxStaff?: number;
+  maxTablesPerStore?: number;
+  storesUsed?: number;
+  staffUsed?: number;
+  tablesUsed?: number;
+  features?: Record<string, boolean>;
+}
+
+export interface SubscriptionPlanDto {
+  code: string;
+  name: string;
+  monthlyPrice: number;
+  maxStores: number;
+  maxStaff: number;
+  maxTablesPerStore: number;
+  isActive: boolean;
+  features: Record<string, boolean>;
+}
+
+export interface StaffDto {
+  staffId: number;
+  storeId: number;
+  storeName: string;
+  username: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  role: 'Staff';
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateStaffRequest {
+  storeId: number;
+  username: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  password: string;
+}
+
+export interface UpdateStaffRequest {
+  storeId: number;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  password?: string;
 }
 
 // --- Voucher Types ---
@@ -456,6 +540,31 @@ export interface AiChatResponseDto {
   modelUsed: string;
 }
 
+export interface InventoryAiChatRequestDto {
+  storeId: number;
+  message: string;
+  periodDays?: number;
+  history?: AiChatMessageDto[];
+}
+
+export interface InventoryAiRecommendationDto {
+  ingredientName: string;
+  suggestedQuantity: number;
+  unit: string;
+  priority: string;
+  reason: string;
+}
+
+export interface InventoryAiChatResponseDto {
+  reply: string;
+  recommendations: InventoryAiRecommendationDto[];
+  quickFollowUps: string[];
+  isAiGenerated: boolean;
+  storeName: string;
+  periodDays: number;
+  topSellingItems: { menuItemId: number; menuItemName: string; soldQuantity: number }[];
+}
+
 // --- Inventory Types ---
 export interface IngredientDto {
   ingredientId: number;
@@ -612,10 +721,19 @@ export interface UpdateTenantPlanDto {
   maxStores: number;
 }
 
+export interface TenantLoyaltyDto {
+  tenantId: number;
+  tenantName: string;
+  totalPoints: number;
+  totalSpent: number;
+  pointsToMoney: number;
+}
+
 // --- Customer Types ---
 export interface CustomerProfileDto {
   customerId: number;
   tenantId: number;
+  tenantName?: string;
   phone: string;
   name: string;
   totalPoints: number;
@@ -625,6 +743,7 @@ export interface CustomerProfileDto {
   pointsPerAmount: number;
   createdAt: string;
   lastVisitAt?: string | null;
+  tenantPoints?: TenantLoyaltyDto[];
 }
 
 export interface UpdateCustomerProfileDto {
@@ -643,4 +762,93 @@ export interface CustomerLoyaltyHistoryDto {
   createdAt: string;
 }
 
+// --- PayOS Payment Gateway Types ---
+export interface CreatePayOSPaymentRequest {
+  orderId?: number;
+  paymentAccessToken?: string;
+  orderCode?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}
+
+export interface PayOSPaymentDto {
+  paymentId: number;
+  orderId: number;
+  orderCode: string;
+  payOSOrderCode: number;
+  amount: number;
+  status: string;
+  checkoutUrl?: string;
+  qrCode?: string;
+  paymentLinkId?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bin?: string;
+  description?: string;
+  storeBankAccount?: string;
+  storeBankName?: string;
+  createdAt: string;
+}
+
+export interface PayOSStatusCheckDto {
+  orderCode: number;
+  orderId: number;
+  status: string; // PENDING, PAID, CANCELLED
+  amount: number;
+  amountPaid: number;
+  amountRemaining: number;
+  isSuccess: boolean;
+  message?: string;
+}
+
+export interface CreatePaymentDto {
+  orderId: number;
+  method: 'cash' | 'bank_transfer' | 'momo' | 'vnpay' | string;
+  amount: number;
+  transactionRef?: string;
+}
+
+export interface PaymentResultDto {
+  paymentId: number;
+  orderId: number;
+  method: string;
+  amount: number;
+  status: string;
+  qrCodeUrl?: string;
+  message?: string;
+}
+
+export interface StorePaymentConfigDto {
+  storeId: number;
+  storeName: string;
+  hasCustomPayOS: boolean;
+  payOSClientId?: string;
+  maskedApiKey?: string;
+  maskedChecksumKey?: string;
+  bankAccount?: string;
+  bankName?: string;
+  bankAccountName?: string;
+}
+
+export interface UpdateStorePaymentConfigDto {
+  payOSClientId?: string;
+  payOSApiKey?: string;
+  payOSChecksumKey?: string;
+  bankAccount?: string;
+  bankName?: string;
+  bankAccountName?: string;
+}
+
+export interface TestStorePaymentConfigRequest {
+  clientId: string;
+  apiKey: string;
+  checksumKey: string;
+}
+
+export interface TestPaymentConfigResultDto {
+  isValid: boolean;
+  message: string;
+  accountName?: string;
+  accountNumber?: string;
+}
 

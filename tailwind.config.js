@@ -8,6 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Brand consistency: legacy orange utility classes now use the project's
+        // brown palette without requiring each screen to carry a separate override.
+        orange: {
+          50: "#fbf7f3",
+          100: "#f4e9df",
+          200: "#e8d2c0",
+          300: "#d7b59b",
+          400: "#bd9070",
+          500: "#8a6247",
+          600: "#6f4e37",
+          700: "#553722",
+          800: "#432b1c",
+          900: "#321f14",
+          950: "#24150e"
+        },
         "on-secondary-fixed-variant": "#484828",
         "surface-variant": "#e4e2e2",
         "on-primary-fixed-variant": "#5f402a",
@@ -16,7 +31,7 @@ export default {
         "surface-container-lowest": "#ffffff",
         "inverse-surface": "#303030",
         "tertiary-fixed-dim": "#ffb783",
-        "surface-bright": "#fbf9f8",
+        "surface-bright": "#F6F1E7",
         "secondary-fixed": "#e6e5b9",
         "primary": "#553722",
         "on-primary-fixed": "#2d1604",
@@ -35,7 +50,7 @@ export default {
         "on-primary": "#ffffff",
         "error": "#ba1a1a",
         "on-tertiary": "#ffffff",
-        "surface": "#fbf9f8",
+        "surface": "#F6F1E7",
         "tertiary-fixed": "#ffdcc5",
         "error-container": "#ffdad6",
         "surface-container-high": "#eae8e7",
@@ -44,7 +59,7 @@ export default {
         "on-secondary-fixed": "#1d1d03",
         "secondary-container": "#e6e5b9",
         "surface-tint": "#79573f",
-        "background": "#fbf9f8",
+        "background": "#F6F1E7",
         "on-tertiary-container": "#ffbc8d",
         "secondary-fixed-dim": "#cac99f",
         "on-surface": "#1b1c1c",
@@ -52,7 +67,7 @@ export default {
         "on-tertiary-fixed-variant": "#713700",
         "on-secondary-container": "#666643",
         "on-error": "#ffffff",
-        "surface-container-low": "#f5f3f3",
+        "surface-container-low": "#F6F1E7",
         "surface-container": "#efeded",
         "on-error-container": "#93000a"
       },

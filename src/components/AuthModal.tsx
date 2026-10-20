@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiClient } from '../api/apiClient';
 import { useAuthStore } from '../store/authStore';
+import { useStore } from '../store/useStore';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { setAuth } = useAuthStore();
+  const { currentStoreId, currentTable } = useStore();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +39,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const payload = {
       username: loginData.username.trim().replace(/\s/g, ''),
       password: loginData.password,
+      storeId: currentStoreId || undefined,
     };
 
     console.log('🚀 Starting login with username:', payload.username);
@@ -58,8 +61,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         console.log(`✅ Login successful with ${endpoint}`);
         console.log('📦 Response data:', response.data);
         onClose();
-        window.location.reload();
-        return; // Success, exit function
+
+        // Redirect based on role
+        if (role === 'SystemAdmin') {
+          window.location.href = '/system-admin';
+          return;
+        } else if (role === 'Owner' || role === 'TenantOwner') {
+          window.location.href = '/admin';
+          return;
+        } else if (role === 'Staff') {
+          window.location.href = '/staff/orders';
+          return;
+        } else {
+          window.location.reload();
+          return;
+        }
       } catch (err: any) {
         console.log(`❌ Failed with ${endpoint}:`, err.response?.status, err.response?.data?.message);
         lastError = err;
@@ -115,10 +131,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       const cleanPhone = registerData.phoneNumber.trim().replace(/\s/g, '');
+      const targetStoreId = (currentStoreId && currentStoreId > 0) ? currentStoreId : 1;
       const payload = {
         fullName: registerData.fullName.trim(),
         phone: cleanPhone,
         password: registerData.password,
+        storeId: targetStoreId,
       };
 
       const response = await apiClient.post('/auth/register', payload);
@@ -128,8 +146,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       if (resData?.phone) {
         const guestSession = {
           guestId: `cust_${resData.customerId || Date.now()}`,
-          storeId: 1,
-          tableId: 'T01',
+          storeId: currentStoreId,
+          tableId: currentTable || '',
           guestName: resData.fullName,
           guestPhone: resData.phone,
           timestamp: new Date().toISOString()
@@ -145,7 +163,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             username: resData.phone, 
             fullName: resData.fullName, 
             role: resData.role || 'Customer', 
-            tenantId: resData.tenantId || 1 
+            tenantId: resData.tenantId
           },
         });
       }
@@ -245,16 +263,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <span className="material-symbols-outlined text-2xl">close</span>
         </button>
 
-        {/* Logo */}
         <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full mx-auto mb-3 flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">WC</span>
-          </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            {isLogin ? 'Đăng Nhập' : 'Đăng Ký'}
+            {isLogin ? 'Đăng Nhập' : 'Đăng Ký Thành Viên'}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            {isLogin ? 'Chào mừng bạn quay lại!' : 'Tạo tài khoản mới'}
+            {isLogin ? 'Chào mừng bạn quay lại!' : 'Tài khoản khách hàng tích điểm & ưu đãi'}
           </p>
         </div>
 
@@ -367,16 +381,30 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         )}
 
         {/* Toggle Login/Register */}
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-2">
           <button
+            type="button"
             onClick={() => {
               setIsLogin(!isLogin);
               setError('');
             }}
-            className="text-sm text-orange-600 hover:text-orange-700 font-semibold"
+            className="text-sm text-orange-600 hover:text-orange-700 font-semibold block w-full text-center"
           >
-            {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
+            {isLogin ? 'Chưa có tài khoản thành viên? Đăng ký ngay' : 'Đã có tài khoản thành viên? Đăng nhập'}
           </button>
+
+          <div className="pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Bạn là chủ quán F&B?{' '}
+              <a
+                href="/signup"
+                onClick={onClose}
+                className="text-amber-800 hover:text-amber-900 font-bold underline"
+              >
+                Đăng ký mở quán mới
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

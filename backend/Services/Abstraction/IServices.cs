@@ -18,6 +18,13 @@ namespace WebCafe.Backend.Services.Abstraction
         Task<LoginResponse> LoginSystemAdminAsync(LoginRequest request);
         Task<LoginResponse> LoginCustomerAsync(LoginRequest request);
         Task<RegisterResponse> RegisterCustomerAsync(RegisterRequest request);
+        Task<OwnerSignupResponse> SignupOwnerAsync(OwnerSignupRequest request);
+        Task<LoginResponse> VerifyOwnerEmailAsync(string token);
+    }
+
+    public interface IEmailService
+    {
+        Task SendVerificationEmailAsync(string recipient, string verificationUrl, CancellationToken cancellationToken = default);
     }
 
     public interface ICategoryService
@@ -43,11 +50,16 @@ namespace WebCafe.Backend.Services.Abstraction
         Task<TableDto> CreateTableAsync(CreateTableDto dto);
         Task<TableDto> UpdateStatusAsync(int tableId, string status);
         Task DeleteTableAsync(int tableId);
+        Task<TableDto> RegenerateQrAsync(int tableId);
+        Task<TableQrResolutionDto?> ResolveQrAsync(string qrToken);
+        Task<TableQrResolutionDto?> ResolveQrAsyncByIds(int storeId, int tableId);
+        Task<TableQrResolutionDto?> ResolveQrAsyncByNumber(int storeId, string tableNumber);
     }
 
     public interface IOrderService
     {
-        Task<OrderDto> CreateOrderAsync(CreateOrderDto dto);
+        Task<OrderDto> CreateOrderAsync(CreateOrderDto dto, int? authenticatedCustomerId = null);
+        Task ApplyPostPaymentBenefitsAsync(int orderId);
         Task<OrderDto?> GetByIdAsync(int orderId);
         Task<OrderDto?> GetByCodeAsync(string orderCode);
         Task<List<OrderDto>> GetActiveOrdersByStoreAsync(int storeId);

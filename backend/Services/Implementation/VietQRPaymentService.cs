@@ -1,7 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using WebCafe.Backend.Common.Constants;
 using WebCafe.Backend.Common.Exceptions;
 using WebCafe.Backend.Infrastructure.Data;
+using WebCafe.Backend.Hubs;
 using WebCafe.Backend.Models.DTOs.Payment;
 using WebCafe.Backend.Models.Entities;
 using WebCafe.Backend.Services.Abstraction;
@@ -21,18 +26,24 @@ namespace WebCafe.Backend.Services.Implementation
         private readonly WebCafeDbContext _db;
         private readonly IOrderService _orderService;
         private readonly IInventoryService _inventoryService;
+        private readonly IOrderNotificationService _notificationService;
         private readonly ILogger<VietQRPaymentService> _logger;
+        private readonly IConfiguration _configuration;
 
         public VietQRPaymentService(
             WebCafeDbContext db, 
             IOrderService orderService,
             IInventoryService inventoryService,
-            ILogger<VietQRPaymentService> logger)
+            IOrderNotificationService notificationService,
+            ILogger<VietQRPaymentService> logger,
+            IConfiguration configuration)
         {
             _db = db;
             _orderService = orderService;
             _inventoryService = inventoryService;
+            _notificationService = notificationService;
             _logger = logger;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -50,7 +61,7 @@ namespace WebCafe.Backend.Services.Implementation
                 throw new NotFoundException("Không tìm thấy đơn hàng.");
             }
 
-            if (order.Status == OrderStatus.Paid)
+            if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Confirmed || order.Status == OrderStatus.Completed)
             {
                 throw new AppException("Đơn hàng đã được thanh toán.");
             }
@@ -110,33 +121,45 @@ namespace WebCafe.Backend.Services.Implementation
                 throw new NotFoundException($"Không tìm thấy đơn hàng {orderCode}.");
             }
 
-            // Kiểm tra đơn đã thanh toán chưa (tránh duplicate)
-            if (order.Status == OrderStatus.Paid)
-            {
-                _logger.LogWarning($"Order {orderCode} already paid. Ignoring webhook.");
-                var existingPayment = await _db.Payments
-                    .FirstOrDefaultAsync(p => p.OrderId == order.OrderId && p.Status == PaymentStatuses.Completed);
+            if (string.IsNullOrWhiteSpace(webhook.TransactionId))
+                throw new AppException("Mã giao dịch ngân hàng bị thiếu.");
+            if (webhook.Amount != order.TotalAmount)
+                throw new AppException($"Số tiền chuyển khoản ({webhook.Amount:N0}đ) không khớp số tiền đơn hàng ({order.TotalAmount:N0}đ).");
+            if (order.Store == null || string.IsNullOrWhiteSpace(order.Store.BankAccount)
+                || !string.Equals(webhook.BankAccount.Trim(), order.Store.BankAccount.Trim(), StringComparison.Ordinal))
+                throw new AppException("Tài khoản nhận tiền trong webhook không khớp cửa hàng.");
 
-                return new PaymentResultDto
+            // Repeated delivery of the same bank transaction is idempotent.
+            var sameTransaction = await _db.Payments
+                .FirstOrDefaultAsync(p => p.TransactionRef == webhook.TransactionId);
+            if (sameTransaction != null)
+            {
+                if (sameTransaction.OrderId != order.OrderId || sameTransaction.Method != PaymentMethods.VietQR)
+                    throw new AppException("Mã giao dịch đã được sử dụng cho đơn hàng khác.");
+
+                if (sameTransaction.Status == PaymentStatuses.Completed)
                 {
-                    PaymentId = existingPayment?.PaymentId ?? 0,
-                    OrderId = order.OrderId,
-                    Method = PaymentMethods.VietQR,
-                    Amount = order.TotalAmount,
-                    Status = PaymentStatuses.Completed,
-                    Message = "Đơn hàng đã được thanh toán trước đó."
-                };
+                    await ActivateOrderAfterPaymentAsync(order);
+                    return ToPaymentResult(sameTransaction, order.OrderId, "Webhook đã được xử lý trước đó.");
+                }
             }
 
-            // Kiểm tra số tiền khớp
-            if (webhook.Amount < order.TotalAmount)
+            var completedPayment = await _db.Payments
+                .FirstOrDefaultAsync(p => p.OrderId == order.OrderId && p.Status == PaymentStatuses.Completed);
+            if (completedPayment != null)
             {
-                throw new AppException($"Số tiền chuyển khoản ({webhook.Amount:N0}đ) không đủ. Cần thanh toán: {order.TotalAmount:N0}đ");
+                throw new AppException("Đơn hàng đã có giao dịch thanh toán thành công.");
+            }
+
+            if (!string.Equals(order.Status, OrderStatus.AwaitingPayment, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(order.Status, OrderStatus.Pending, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new AppException($"Đơn hàng không ở trạng thái chờ thanh toán (trạng thái hiện tại: {order.Status}).");
             }
 
             // Tìm và cập nhật payment record
-            var payment = await _db.Payments
-                .FirstOrDefaultAsync(p => p.OrderId == order.OrderId && p.Status == PaymentStatuses.Pending);
+            var payment = sameTransaction ?? await _db.Payments
+                .FirstOrDefaultAsync(p => p.OrderId == order.OrderId && p.Method == PaymentMethods.VietQR && p.Status == PaymentStatuses.Pending);
 
             if (payment == null)
             {
@@ -163,30 +186,60 @@ namespace WebCafe.Backend.Services.Implementation
 
             await _db.SaveChangesAsync();
 
-            // Cập nhật trạng thái đơn hàng
-            await _orderService.UpdateStatusAsync(order.OrderId, OrderStatus.Paid, null);
+            await ActivateOrderAfterPaymentAsync(order);
 
-            // Tự động trừ kho
+            _logger.LogInformation($"Successfully processed VietQR payment for order {orderCode}");
+
+            return ToPaymentResult(payment, order.OrderId, "Thanh toán thành công qua VietQR.");
+        }
+
+        private static PaymentResultDto ToPaymentResult(Payment payment, int orderId, string message) => new()
+        {
+            PaymentId = payment.PaymentId,
+            OrderId = orderId,
+            Method = payment.Method,
+            Amount = payment.Amount,
+            Status = payment.Status,
+            Message = message
+        };
+
+        private async Task ActivateOrderAfterPaymentAsync(Order order)
+        {
+            var isNewlyActivated = string.Equals(order.Status, OrderStatus.AwaitingPayment, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(order.Status, OrderStatus.Pending, StringComparison.OrdinalIgnoreCase);
+            if (isNewlyActivated)
+                await _orderService.UpdateStatusAsync(order.OrderId, OrderStatus.Confirmed, null);
+            else if (!string.Equals(order.Status, OrderStatus.Confirmed, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(order.Status, OrderStatus.Paid, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(order.Status, OrderStatus.Completed, StringComparison.OrdinalIgnoreCase))
+                throw new AppException($"Không thể kích hoạt đơn ở trạng thái '{order.Status}'.");
+
             try
             {
                 await _inventoryService.DeductInventoryForOrderAsync(order.OrderId, null);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to deduct inventory for order {orderCode}");
+                _logger.LogError(ex, "Failed to deduct inventory for VietQR order {OrderCode}", order.OrderCode);
             }
+            await _orderService.ApplyPostPaymentBenefitsAsync(order.OrderId);
 
-            _logger.LogInformation($"Successfully processed VietQR payment for order {orderCode}");
-
-            return new PaymentResultDto
+            if (order.TableId.HasValue)
             {
-                PaymentId = payment.PaymentId,
-                OrderId = order.OrderId,
-                Method = payment.Method,
-                Amount = payment.Amount,
-                Status = payment.Status,
-                Message = "Thanh toán thành công qua VietQR."
-            };
+                var table = await _db.Tables.FirstOrDefaultAsync(t => t.TableId == order.TableId.Value);
+                if (table != null && table.Status != TableStatuses.Occupied)
+                {
+                    table.Status = TableStatuses.Occupied;
+                    await _db.SaveChangesAsync();
+                    await _notificationService.NotifyTableStatusChangedAsync(order.StoreId, table.TableId, TableStatuses.Occupied);
+                }
+            }
+            if (isNewlyActivated)
+            {
+                var activatedOrder = await _orderService.GetByIdAsync(order.OrderId);
+                if (activatedOrder != null)
+                    await _notificationService.NotifyNewOrderAsync(order.StoreId, activatedOrder);
+            }
         }
 
         /// <summary>
@@ -205,19 +258,25 @@ namespace WebCafe.Backend.Services.Implementation
         }
 
         /// <summary>
-        /// Verify webhook signature (nếu ngân hàng cung cấp)
+        /// Verify webhook signature using the configured shared HMAC secret.
         /// </summary>
         public Task<bool> VerifyWebhookSignatureAsync(VietQRWebhookDto webhook, string signature)
         {
-            // Implement signature verification based on bank's documentation
-            // For now, return true (trong production cần implement đúng)
-            // Example: HMAC SHA256 với secret key
-            
-            // var secretKey = _configuration["VietQR:WebhookSecret"];
-            // var computedSignature = ComputeHMACSHA256(webhook, secretKey);
-            // return computedSignature == signature;
+            var secret = _configuration["VietQR:WebhookSecret"];
+            if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(signature))
+                return Task.FromResult(false);
 
-            return Task.FromResult(true);
+            var canonical = string.Join("|", webhook.TransactionId.Trim(),
+                webhook.Amount.ToString("0.##", CultureInfo.InvariantCulture),
+                webhook.Description.Trim(), webhook.TransactionTime.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                webhook.BankAccount.Trim(), (webhook.ReferenceNumber ?? string.Empty).Trim());
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+            var expected = hmac.ComputeHash(Encoding.UTF8.GetBytes(canonical));
+            var normalized = signature.Trim();
+            byte[] provided;
+            try { provided = Convert.FromHexString(normalized); }
+            catch { try { provided = Convert.FromBase64String(normalized); } catch { return Task.FromResult(false); } }
+            return Task.FromResult(provided.Length == expected.Length && CryptographicOperations.FixedTimeEquals(provided, expected));
         }
 
         private static VietQRPaymentDto MapToVietQRDto(Payment payment, Order order)

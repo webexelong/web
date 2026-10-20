@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useStore } from '../../store/useStore';
 import { customerApi } from '../../api/apis';
 import type { CustomerProfileDto, CustomerLoyaltyHistoryDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
@@ -8,6 +9,7 @@ import MobileBottomNav from '../../components/MobileBottomNav';
 
 export default function Profile() {
   const { isAuthenticated, user, setAuth, token } = useAuthStore();
+  const { guestSession, currentStoreId } = useStore();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<CustomerProfileDto | null>(null);
@@ -21,6 +23,8 @@ export default function Profile() {
   const [loyaltyHistory, setLoyaltyHistory] = useState<CustomerLoyaltyHistoryDto[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  const activeStoreId = guestSession?.storeId || currentStoreId;
+
   useEffect(() => {
     if (!isAuthenticated || !user?.username) {
       setLoading(false);
@@ -29,13 +33,16 @@ export default function Profile() {
 
     fetchProfile();
     fetchLoyaltyHistory();
-  }, [isAuthenticated, user?.username]);
+  }, [isAuthenticated, user?.username, activeStoreId]);
 
   const fetchProfile = async () => {
     if (!user?.username) return;
     setLoading(true);
     try {
-      const data = await customerApi.getProfile(user.username);
+      const data = await customerApi.getProfile({
+        phone: user.username,
+        storeId: activeStoreId > 0 ? activeStoreId : undefined
+      });
       setProfile(data);
       setNameInput(data.name || '');
     } catch (err: any) {
@@ -206,6 +213,12 @@ export default function Profile() {
                       <span className="material-symbols-outlined text-xs">phone_iphone</span>
                       {profile?.phone}
                     </p>
+                    {profile?.tenantName && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-[11px] font-semibold text-amber-200 border border-white/15">
+                        <span className="material-symbols-outlined text-xs">storefront</span>
+                        <span>Đang tại: {profile.tenantName}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -213,7 +226,7 @@ export default function Profile() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:text-right flex sm:flex-col justify-between items-center sm:items-end">
                   <span className="text-xs uppercase tracking-wider text-amber-200 font-bold flex items-center gap-1">
                     <span className="material-symbols-outlined text-sm text-amber-300" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
-                    Điểm Tích Lũy
+                    Điểm Tại {profile?.tenantName || 'Quán Này'}
                   </span>
                   <div className="text-2xl sm:text-3xl font-black text-amber-300">
                     {profile?.totalPoints.toLocaleString()} <span className="text-xs font-normal text-white/80">điểm</span>
@@ -227,7 +240,7 @@ export default function Profile() {
               {/* Thống kê chi tiêu */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-white/10 text-center">
                 <div className="bg-white/5 rounded-xl p-2.5">
-                  <div className="text-xs text-white/60">Tổng chi tiêu</div>
+                  <div className="text-xs text-white/60">Tổng chi tiêu ({profile?.tenantName || 'Quán này'})</div>
                   <div className="text-sm sm:text-base font-extrabold text-white mt-0.5">
                     {profile?.totalSpent.toLocaleString()}đ
                   </div>
@@ -246,6 +259,77 @@ export default function Profile() {
                 </div>
               </div>
             </section>
+
+            {/* Ví Điểm Đa Quán Trên Toàn Nền Tảng SaaS */}
+            {profile?.tenantPoints && profile.tenantPoints.length > 0 && (
+              <section className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-orange-500">account_balance_wallet</span>
+                      Ví Điểm Tích Lũy Đa Quán (SaaS)
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      1 tài khoản dùng chung cho tất cả các quán trên nền tảng. Điểm được lưu trữ riêng và áp dụng khi bạn ghé từng quán.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 shrink-0">
+                    {profile.tenantPoints.length} quán đã ghé
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {profile.tenantPoints.map((item) => {
+                    const isCurrent = item.tenantId === profile.tenantId;
+                    return (
+                      <div
+                        key={item.tenantId}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isCurrent
+                            ? 'bg-amber-50/60 border-amber-300 shadow-sm'
+                            : 'bg-gray-50/50 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="material-symbols-outlined text-orange-600 text-lg shrink-0">
+                              storefront
+                            </span>
+                            <span className="text-sm font-bold text-gray-900 truncate">
+                              {item.tenantName}
+                            </span>
+                          </div>
+                          {isCurrent ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white shadow-xs shrink-0">
+                              Đang xem
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-gray-600 shrink-0">
+                              Khác
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-gray-100">
+                          <div>
+                            <span className="text-[11px] text-gray-500">Số điểm khả dụng</span>
+                            <div className="text-base font-black text-amber-600">
+                              {item.totalPoints.toLocaleString()} <span className="text-xs font-normal text-gray-600">điểm</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[11px] text-gray-500">Chi tiêu tích lũy</span>
+                            <div className="text-xs font-bold text-gray-700">
+                              {item.totalSpent.toLocaleString()}đ
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* Thông báo cập nhật */}
             {message && (

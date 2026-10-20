@@ -74,4 +74,39 @@ namespace WebCafe.Backend.Models.DTOs.AI
         public bool IsAiGenerated { get; set; } = true;
         public string ModelUsed { get; set; } = "gemini-3.6-flash";
     }
+
+    public class InventoryAiChatRequestDto
+    {
+        public int StoreId { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public int PeriodDays { get; set; } = 30;
+        public List<AiChatMessageDto> History { get; set; } = new();
+    }
+
+    public class InventoryAiRecommendationDto
+    {
+        public string IngredientName { get; set; } = string.Empty;
+        public decimal SuggestedQuantity { get; set; }
+        public string Unit { get; set; } = string.Empty;
+        public string Priority { get; set; } = "medium";
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    public class InventoryAiChatResponseDto
+    {
+        public string Reply { get; set; } = string.Empty;
+        public List<InventoryAiRecommendationDto> Recommendations { get; set; } = new();
+        public List<string> QuickFollowUps { get; set; } = new();
+        public bool IsAiGenerated { get; set; }
+        public string StoreName { get; set; } = string.Empty;
+        public int PeriodDays { get; set; }
+        public List<InventoryAiTopProductDto> TopSellingItems { get; set; } = new();
+    }
+
+    public class InventoryAiTopProductDto
+    {
+        public int MenuItemId { get; set; }
+        public string MenuItemName { get; set; } = string.Empty;
+        public int SoldQuantity { get; set; }
+    }
 }

@@ -10,7 +10,7 @@ import type {
 } from '../types/apiTypes';
 
 // --- UI Compatible Types ---
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'done' | 'served' | 'paid' | 'cancelled';
+export type OrderStatus = 'awaiting_payment' | 'pending' | 'confirmed' | 'preparing' | 'ready' | 'done' | 'served' | 'paid' | 'completed' | 'cancelled';
 
 export interface MenuItem {
   id: string;
@@ -57,11 +57,51 @@ export interface Order {
 export interface GuestSession {
   guestId: string; // UUID for tracking
   storeId: number;
-  tableId: string;
+  tableId: string | number;
+  tableToken?: string;
+  tableNumber: string;
+  storeName?: string;
   guestName?: string;
   guestPhone?: string;
   timestamp: string;
 }
+
+const loadInitialGuestSession = (): GuestSession | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const saved = localStorage.getItem('guestSession');
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (parsed && parsed.storeId && (parsed.tableId !== undefined || parsed.tableNumber)) {
+      return {
+        ...parsed,
+        tableNumber: parsed.tableNumber || (typeof parsed.tableId === 'string' ? parsed.tableId : `Bàn ${parsed.tableId}`),
+      };
+    }
+  } catch (e) {
+    console.error('Failed to parse guestSession from localStorage', e);
+  }
+  return null;
+};
+
+const loadInitialCart = (): CartItem[] => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const saved = localStorage.getItem('webcafe_cart');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse cart from localStorage', e);
+  }
+  return [];
+};
+
+const initialGuestSession = loadInitialGuestSession();
+const initialCart = loadInitialCart();
+const menuRequests = new Map<number, Promise<void>>();
 
 interface StoreState {
   // Data
@@ -75,6 +115,8 @@ interface StoreState {
   // Customer State
   currentStoreId: number;
   currentTable: string | null;
+  currentTableId: number | null;
+  currentTableNumber: string | null;
   cart: CartItem[];
   appliedVoucherCode: string | null;
   voucherDiscount: number;
@@ -90,7 +132,7 @@ interface StoreState {
   fetchOrders: (storeId?: number) => Promise<void>;
   
   // Guest Session Actions
-  initGuestSession: (storeId: number, tableId: string) => void;
+  initGuestSession: (storeId: number, tableId: string | number, tableNumber?: string, storeName?: string, tableToken?: string) => void;
   updateGuestInfo: (name?: string, phone?: string) => void;
   clearGuestSession: () => void;
   
@@ -112,7 +154,15 @@ interface StoreState {
   setVoucher: (code: string, discount: number) => void;
   
   placeOrder: () => void;
-  createOrder: (tableId: string, customerPhone?: string, customerName?: string, note?: string, pointsToUse?: number) => Promise<Order>;
+  createOrder: (
+    tableId?: string | number, 
+    customerPhone?: string, 
+    customerName?: string, 
+    note?: string, 
+    sourceOrPoints?: 'qr_table' | 'pos_staff' | number, 
+    paymentMethod?: 'cash' | 'payos' | 'unpaid',
+    pointsToUse?: number
+  ) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   
   initRealtime: (storeId?: number) => void;
@@ -130,42 +180,182 @@ const mockCategories: Category[] = [
   { id: 'Bánh Ngọt', name: 'Bánh Ngọt', icon: 'bakery_dining' }
 ];
 
+const defaultMenuItems: MenuItem[] = [
+  {
+    id: '1',
+    name: 'Caramel Cloud Macchiato',
+    description: 'Lớp bọt sữa lạnh mềm mịn phủ trên lớp espresso cùng hương vani và xốt caramel.',
+    price: 57500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAb7dmU9p5ws6yiGWFQpEh-Vjo0PCA4sYcpCjINzCM3Te0tnsc9ffhxbMqhXwS7_UeEMCLtBftnxvaW-r--YOlDyGw_cqWmfbTrTi9x04jt5jvNm1zWxdQmgdxk0COUycCP_X3lzDPhldmC8jF2emQxsl_LjSU_wRlGYcAvL9KlYEpvc75GxsLaJyeJWoZdR3CyjB-3uLAfxuL5A33XycLc9p5gssh1z_k2p2uFU0nfU_ylV5jeljNf',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.8,
+    rawDto: {
+      menuItemId: 1,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Caramel Cloud Macchiato',
+      basePrice: 57500,
+      description: 'Lớp bọt sữa lạnh mềm mịn phủ trên lớp espresso cùng hương vani và xốt caramel.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAb7dmU9p5ws6yiGWFQpEh-Vjo0PCA4sYcpCjINzCM3Te0tnsc9ffhxbMqhXwS7_UeEMCLtBftnxvaW-r--YOlDyGw_cqWmfbTrTi9x04jt5jvNm1zWxdQmgdxk0COUycCP_X3lzDPhldmC8jF2emQxsl_LjSU_wRlGYcAvL9KlYEpvc75GxsLaJyeJWoZdR3CyjB-3uLAfxuL5A33XycLc9p5gssh1z_k2p2uFU0nfU_ylV5jeljNf',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 1,
+      rating: 4.8,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '2',
+    name: 'Nitro Velvet Brew',
+    description: 'Ủ lạnh 20 tiếng và kết hợp với khí nitơ để tạo nên kết cấu siêu mịn, béo ngậy.',
+    price: 49500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBm3z4t9Q_erviq8V0f_xE0Kk5WKh-Gyct1TiA-sfVsueTSn9wSDN91lNfpzBCEoZlsVIuL3-LtwaoH9xfm45EfTaOmgDo4FaKA5jK8oGYyU6HEHjs7K0nh6zdw6ro5mjYFK6MgUBSb0y_0wBgcGekJdVZoFeYmxiJSH5tr9HHd0DXye5CvJ42Q2FvTvGyLN2dv5uxi4xC0LKNZUzwpe6JnCPG2J1N0h7RFNvSaw5ksNL1inKMpmiWc',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.9,
+    rawDto: {
+      menuItemId: 2,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Nitro Velvet Brew',
+      basePrice: 49500,
+      description: 'Ủ lạnh 20 tiếng và kết hợp với khí nitơ để tạo nên kết cấu siêu mịn, béo ngậy.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBm3z4t9Q_erviq8V0f_xE0Kk5WKh-Gyct1TiA-sfVsueTSn9wSDN91lNfpzBCEoZlsVIuL3-LtwaoH9xfm45EfTaOmgDo4FaKA5jK8oGYyU6HEHjs7K0nh6zdw6ro5mjYFK6MgUBSb0y_0wBgcGekJdVZoFeYmxiJSH5tr9HHd0DXye5CvJ42Q2FvTvGyLN2dv5uxi4xC0LKNZUzwpe6JnCPG2J1N0h7RFNvSaw5ksNL1inKMpmiWc',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 2,
+      rating: 4.9,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '3',
+    name: 'Classic Flat White',
+    description: 'Hai shot espresso được chiết xuất hoàn hảo với lớp bọt sữa mỏng và siêu mịn.',
+    price: 45000,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBnqJ2oXSFRtA0ryNB9aaYC2CyYGG_EVliGTodIT1ko3_4mwED6o3WhSyDUz4gFfHFuXMNcoZ8Ut3AdaYz2rooQIo8a5uU97WxsHKJPIgsWl1yZGv95X4meMJFTe0sY7VwXaEq69fFdtp0MBmW6Kuc42C4s1ELHt2s6-0v00VxRQ_-FfuBDTGLzpnwsa5BYYv00jS6frOt4pl4orUPlb8MunpQEEBTHVkKeL6_zDRRzsXfu8AleqBlc',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.6,
+    rawDto: {
+      menuItemId: 3,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Classic Flat White',
+      basePrice: 45000,
+      description: 'Hai shot espresso được chiết xuất hoàn hảo với lớp bọt sữa mỏng và siêu mịn.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBnqJ2oXSFRtA0ryNB9aaYC2CyYGG_EVliGTodIT1ko3_4mwED6o3WhSyDUz4gFfHFuXMNcoZ8Ut3AdaYz2rooQIo8a5uU97WxsHKJPIgsWl1yZGv95X4meMJFTe0sY7VwXaEq69fFdtp0MBmW6Kuc42C4s1ELHt2s6-0v00VxRQ_-FfuBDTGLzpnwsa5BYYv00jS6frOt4pl4orUPlb8MunpQEEBTHVkKeL6_zDRRzsXfu8AleqBlc',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: false,
+      isAvailable: true,
+      sortOrder: 3,
+      rating: 4.6,
+      sizes: [],
+      toppings: []
+    }
+  },
+  {
+    id: '4',
+    name: 'Winter Peppermint Mocha',
+    description: 'Espresso đậm đà kết hợp với sô-cô-la đắng, si-rô bạc hà và kem tươi.',
+    price: 59500,
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9-1leTygB-ItPyqGSVsiUhHGiA0NO8LiAGMH2RaXxZjF_IkvbelPHagclH3hVM2HQ2Kn77b6uoFQ1fWeBvLRhSab5mEXwEQc1Y119gPPQcjbejtNiF1ullU-5lJlzdHbqU6ZZtuSuba_yHqQ9aaWdzG6OWcldnuEy6Z3vbf3T0sL62dOocyli4ykfmAWeuF-xo4M_bxsFiR8J1wod-116FEzUjJC6ETgo01I3cf0ZNLQC3TY7tP1Z',
+    categoryId: 'Cà Phê Pha Máy',
+    categoryName: 'Cà Phê Pha Máy',
+    rating: 4.9,
+    rawDto: {
+      menuItemId: 4,
+      tenantId: 1,
+      categoryId: 1,
+      name: 'Winter Peppermint Mocha',
+      basePrice: 59500,
+      description: 'Espresso đậm đà kết hợp với sô-cô-la đắng, si-rô bạc hà và kem tươi.',
+      imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9-1leTygB-ItPyqGSVsiUhHGiA0NO8LiAGMH2RaXxZjF_IkvbelPHagclH3hVM2HQ2Kn77b6uoFQ1fWeBvLRhSab5mEXwEQc1Y119gPPQcjbejtNiF1ullU-5lJlzdHbqU6ZZtuSuba_yHqQ9aaWdzG6OWcldnuEy6Z3vbf3T0sL62dOocyli4ykfmAWeuF-xo4M_bxsFiR8J1wod-116FEzUjJC6ETgo01I3cf0ZNLQC3TY7tP1Z',
+      categoryName: 'Cà Phê Pha Máy',
+      isFeatured: true,
+      isAvailable: true,
+      sortOrder: 4,
+      rating: 4.9,
+      sizes: [],
+      toppings: []
+    }
+  }
+];
+
+const loadInitialMenuItems = (): MenuItem[] => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return defaultMenuItems;
+    const cached = localStorage.getItem('webcafe_cached_menu_items');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse cached menu items', e);
+  }
+  return defaultMenuItems;
+};
+
 export const useStore = create<StoreState>((set, get) => ({
-  menuItems: [],
+  menuItems: loadInitialMenuItems(),
   categories: mockCategories,
   orders: [],
   activeOrder: null,
   storeInfo: null,
   user: null,
 
-  currentStoreId: 1,
-  currentTable: null,
-  cart: [],
+  currentStoreId: initialGuestSession?.storeId || 0,
+  currentTable: initialGuestSession?.tableNumber || (initialGuestSession?.tableId ? String(initialGuestSession.tableId) : null),
+  currentTableId: typeof initialGuestSession?.tableId === 'number' ? initialGuestSession.tableId : (Number(initialGuestSession?.tableId) || null),
+  currentTableNumber: initialGuestSession?.tableNumber || null,
+  cart: initialCart,
   appliedVoucherCode: null,
   voucherDiscount: 0,
   isLoading: false,
-  guestSession: null,
+  guestSession: initialGuestSession,
 
   setStoreId: (storeId) => set({ currentStoreId: storeId }),
-  setTable: (table) => set({ currentTable: table }),
+  setTable: (table) => set({ currentTable: table, currentTableNumber: table }),
 
   // Guest Session Management
-  initGuestSession: (storeId, tableId) => {
+  initGuestSession: (storeId, tableId, tableNumber, storeName, tableToken) => {
     const guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const displayTableNumber = tableNumber || (typeof tableId === 'string' ? tableId : `Bàn ${tableId}`);
+    const numericTableId = typeof tableId === 'number' ? tableId : (parseInt(tableId) || 0);
+
     const session: GuestSession = {
       guestId,
       storeId,
       tableId,
+      tableNumber: displayTableNumber,
+      storeName,
+      tableToken,
       timestamp: new Date().toISOString(),
     };
-    
+
+    const previousStoreId = get().currentStoreId;
+    const isSwitchingStore = previousStoreId > 0 && previousStoreId !== storeId;
+
     // Persist to localStorage
     localStorage.setItem('guestSession', JSON.stringify(session));
     
     set({ 
       guestSession: session,
       currentStoreId: storeId,
-      currentTable: tableId,
+      currentTable: typeof tableId === 'string' ? tableId : displayTableNumber,
+      currentTableId: numericTableId > 0 ? numericTableId : null,
+      currentTableNumber: displayTableNumber,
+      // Tự động làm sạch giỏ hàng khi đổi sang quán khác để tránh lẫn món
+      cart: isSwitchingStore ? [] : get().cart,
+      appliedVoucherCode: isSwitchingStore ? null : get().appliedVoucherCode,
+      voucherDiscount: isSwitchingStore ? 0 : get().voucherDiscount,
     });
   },
 
@@ -180,47 +370,74 @@ export const useStore = create<StoreState>((set, get) => ({
 
   clearGuestSession: () => {
     localStorage.removeItem('guestSession');
-    set({ guestSession: null });
+    set({ 
+      guestSession: null,
+      currentTable: null,
+      currentTableId: null,
+      currentTableNumber: null,
+    });
   },
 
   fetchMenu: async (storeId) => {
     const sId = storeId || get().currentStoreId;
+    if (!Number.isInteger(sId) || sId <= 0) return;
+
+    const pendingRequest = menuRequests.get(sId);
+    if (pendingRequest) return pendingRequest;
+
+    const request = (async () => {
+      try {
+        set({ isLoading: true });
+        const data = await menuApi.getStoreMenu(sId);
+
+        // Filter out 'Quà Lưu Niệm'
+        const mappedCategories: Category[] = data.categories
+          .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'))
+          .map(c => ({
+            id: c.name,
+            name: c.name,
+            icon: c.icon || 'coffee',
+          }));
+
+        const mappedItems: MenuItem[] = data.menuItems
+          .filter(m => !m.categoryName?.toLowerCase().includes('quà') && !m.categoryName?.toLowerCase().includes('lưu niệm'))
+          .map(m => ({
+            id: m.menuItemId.toString(),
+            name: m.name,
+            description: m.description || '',
+            price: m.basePrice,
+            image: m.imageUrl || 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&q=80',
+            categoryId: m.categoryName || 'Cà Phê Pha Máy',
+            categoryName: m.categoryName,
+            rating: m.rating || 4.8,
+            rawDto: m,
+          }));
+
+        set({
+          storeInfo: data,
+          categories: mappedCategories.length > 0 ? mappedCategories : mockCategories,
+          menuItems: mappedItems,
+          isLoading: false
+        });
+
+        try {
+          if (mappedItems.length > 0) {
+            localStorage.setItem('webcafe_cached_menu_items', JSON.stringify(mappedItems));
+          }
+        } catch (e) {
+          console.warn('Failed to cache menu items to localStorage', e);
+        }
+      } catch (err) {
+        console.warn('API menu fetch failed, using fallback UI state:', err);
+        set({ isLoading: false });
+      }
+    })();
+
+    menuRequests.set(sId, request);
     try {
-      set({ isLoading: true });
-      const data = await menuApi.getStoreMenu(sId);
-      
-      // Filter out 'Quà Lưu Niệm'
-      const mappedCategories: Category[] = data.categories
-        .filter(c => !c.name.toLowerCase().includes('quà') && !c.name.toLowerCase().includes('lưu niệm'))
-        .map(c => ({
-          id: c.name,
-          name: c.name,
-          icon: c.icon || 'coffee',
-        }));
-
-      const mappedItems: MenuItem[] = data.menuItems
-        .filter(m => !m.categoryName?.toLowerCase().includes('quà') && !m.categoryName?.toLowerCase().includes('lưu niệm'))
-        .map(m => ({
-          id: m.menuItemId.toString(),
-          name: m.name,
-          description: m.description || '',
-          price: m.basePrice,
-          image: m.imageUrl || 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&q=80',
-          categoryId: m.categoryName || 'Cà Phê Pha Máy',
-          categoryName: m.categoryName,
-          rating: m.rating || 4.8,
-          rawDto: m,
-        }));
-
-      set({
-        storeInfo: data,
-        categories: mappedCategories.length > 0 ? mappedCategories : mockCategories,
-        menuItems: mappedItems,
-        isLoading: false
-      });
-    } catch (err) {
-      console.warn('API menu fetch failed, using fallback UI state:', err);
-      set({ isLoading: false });
+      await request;
+    } finally {
+      menuRequests.delete(sId);
     }
   },
 
@@ -283,10 +500,10 @@ export const useStore = create<StoreState>((set, get) => ({
       ))
     );
 
+    let updatedCart: CartItem[];
     if (existingIndex > -1) {
-      const updatedCart = [...get().cart];
+      updatedCart = [...get().cart];
       updatedCart[existingIndex].quantity += (options.quantity || 1);
-      set({ cart: updatedCart });
     } else {
       const newCartItem: CartItem = {
         cartItemId,
@@ -306,8 +523,17 @@ export const useStore = create<StoreState>((set, get) => ({
         note: options.note,
         rawDto: item.rawDto || item,
       };
-      set({ cart: [...get().cart, newCartItem] });
+      updatedCart = [...get().cart, newCartItem];
     }
+
+    // Persist to localStorage
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+
+    set({ cart: updatedCart });
 
     // Gửi sự kiện add_to_cart lên Google Analytics 4
     try {
@@ -323,33 +549,50 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  removeFromCart: (key: string) => set({
-    cart: get().cart.filter(i => (i.cartItemId || i.id) !== key)
-  }),
+  removeFromCart: (key: string) => {
+    const updatedCart = get().cart.filter(i => (i.cartItemId || i.id) !== key);
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+    set({ cart: updatedCart });
+  },
 
   updateQuantity: (key: string, quantity: number) => {
     if (quantity <= 0) {
       get().removeFromCart(key);
       return;
     }
-    set({
-      cart: get().cart.map(i => (i.cartItemId || i.id) === key ? { ...i, quantity } : i)
-    });
+    const updatedCart = get().cart.map(i => (i.cartItemId || i.id) === key ? { ...i, quantity } : i);
+    try {
+      localStorage.setItem('webcafe_cart', JSON.stringify(updatedCart));
+    } catch (e) {
+      console.warn('Failed to persist cart to localStorage', e);
+    }
+    set({ cart: updatedCart });
   },
 
-  clearCart: () => set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 }),
+  clearCart: () => {
+    try {
+      localStorage.removeItem('webcafe_cart');
+    } catch (e) {
+      console.warn('Failed to clear cart from localStorage', e);
+    }
+    set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 });
+  },
 
   setVoucher: (code, discount) => set({ appliedVoucherCode: code, voucherDiscount: discount }),
 
   placeOrder: () => {
-    const { cart, currentTable } = get();
+    const { cart, currentTable, currentTableNumber, guestSession } = get();
     if (cart.length === 0) return;
     
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const newOrder: Order = {
       id: `o${Math.random().toString(36).substr(2, 9)}`,
       orderCode: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-      tableNumber: currentTable || 'T01',
+      tableNumber: guestSession?.tableNumber || currentTableNumber || currentTable || 'Mang về',
       items: [...cart],
       total,
       status: 'pending',
@@ -359,19 +602,62 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ orders: [newOrder, ...get().orders], activeOrder: newOrder, cart: [] });
   },
 
-  createOrder: async (tableId, customerPhone, customerName, note, pointsToUse = 0) => {
-    const { cart, currentStoreId, currentTable, appliedVoucherCode, guestSession } = get();
+  createOrder: async (tableId, customerPhone, customerName, note, sourceOrPoints = 'qr_table', paymentMethod, pointsToUseParam) => {
+    let source: 'qr_table' | 'pos_staff' = 'qr_table';
+    let pointsToUse = 0;
+
+    if (typeof sourceOrPoints === 'number') {
+      pointsToUse = sourceOrPoints;
+      source = 'qr_table';
+    } else if (sourceOrPoints) {
+      source = sourceOrPoints;
+      pointsToUse = pointsToUseParam || 0;
+    }
+    const { cart, currentStoreId, currentTableId, currentTableNumber, currentTable, appliedVoucherCode, guestSession } = get();
     if (cart.length === 0) throw new Error('Giỏ hàng trống');
 
-    const tableStr = tableId || currentTable || 'T01';
-    let tableNumId: number | undefined = undefined;
-    const match = tableStr.match(/\d+/);
-    if (match) tableNumId = parseInt(match[0]);
+    // Xác định chính xác tableId (khóa chính số nguyên) và tableNumber (chuỗi hiển thị)
+    let finalTableNumId: number | undefined = undefined;
+    let finalDisplayTable: string = 'Mang về';
+
+    if (typeof tableId === 'number' && tableId > 0) {
+      finalTableNumId = tableId;
+      finalDisplayTable = guestSession?.tableNumber || currentTableNumber || `Bàn ${tableId}`;
+    } else if (guestSession?.tableId) {
+      if (typeof guestSession.tableId === 'number' && guestSession.tableId > 0) {
+        finalTableNumId = guestSession.tableId;
+      } else {
+        const parsed = parseInt(String(guestSession.tableId));
+        if (!isNaN(parsed) && parsed > 0) finalTableNumId = parsed;
+      }
+      finalDisplayTable = guestSession.tableNumber || `Bàn ${guestSession.tableId}`;
+    } else if (currentTableId && currentTableId > 0) {
+      finalTableNumId = currentTableId;
+      finalDisplayTable = currentTableNumber || `Bàn ${currentTableId}`;
+    } else if (typeof tableId === 'string' && tableId.trim()) {
+      const parsed = parseInt(tableId);
+      if (!isNaN(parsed) && parsed > 0) {
+        finalTableNumId = parsed;
+      }
+      finalDisplayTable = tableId;
+    } else if (currentTable) {
+      finalDisplayTable = currentTable;
+    }
+
+    if (source === 'qr_table' && (!finalTableNumId || finalTableNumId <= 0)) {
+      throw new Error('Vui lòng quét mã QR tại bàn để xác định vị trí phục vụ trước khi gọi món.');
+    }
+
+    const effectiveStoreId = currentStoreId || guestSession?.storeId || 0;
+    if (effectiveStoreId <= 0) {
+      throw new Error('Không xác định được chi nhánh quán. Vui lòng quét lại mã QR tại bàn.');
+    }
 
     try {
       const payload = {
-        storeId: currentStoreId,
-        tableId: tableNumId,
+        storeId: effectiveStoreId,
+        tableId: finalTableNumId,
+        tableToken: guestSession?.tableToken || undefined,
         customerPhone: customerPhone || undefined,
         customerName: customerName || undefined,
         
@@ -379,6 +665,8 @@ export const useStore = create<StoreState>((set, get) => ({
         guestId: guestSession?.guestId || undefined,
         guestName: guestSession?.guestName || customerName || undefined,
         guestPhone: guestSession?.guestPhone || customerPhone || undefined,
+        source: source,
+        paymentMethod: paymentMethod || undefined,
         
         voucherCode: appliedVoucherCode || undefined,
         pointsToUse: pointsToUse || 0,
@@ -398,20 +686,28 @@ export const useStore = create<StoreState>((set, get) => ({
       };
 
       const res = await orderApi.createOrder(payload);
+
+      // Keep the guest capability out of the URL; it is needed after refresh and
+      // when the payment provider redirects back to this browser tab.
+      if (res.paymentAccessToken) {
+        sessionStorage.setItem(`webcafe_payment_access_code_${res.orderCode}`, res.paymentAccessToken);
+        sessionStorage.setItem(`webcafe_payment_access_order_${res.orderId}`, res.paymentAccessToken);
+      }
       
       const newOrder: Order = {
         id: res.orderId.toString(),
         orderCode: res.orderCode,
-        tableNumber: res.tableNumber || tableStr,
+        tableNumber: res.tableNumber || finalDisplayTable,
         total: res.totalAmount,
-        status: 'pending',
+        status: (res.status as OrderStatus) || (source === 'pos_staff' ? (paymentMethod === 'cash' ? 'paid' : 'awaiting_payment') : 'awaiting_payment'),
         createdAt: res.createdAt,
         rawDto: res,
         items: [...cart],
       };
 
+      const existingOrders = get().orders.filter(o => o.id !== newOrder.id);
       set({
-        orders: [newOrder, ...get().orders],
+        orders: [newOrder, ...existingOrders],
         activeOrder: newOrder,
         cart: [],
         appliedVoucherCode: null,
@@ -420,19 +716,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
       return newOrder;
     } catch (err) {
-      console.warn('API createOrder failed, fallback local order:', err);
-      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const fallbackOrder: Order = {
-        id: `o${Math.random().toString(36).substr(2, 9)}`,
-        orderCode: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-        tableNumber: tableStr,
-        items: [...cart],
-        total,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
-      set({ orders: [fallbackOrder, ...get().orders], activeOrder: fallbackOrder, cart: [] });
-      return fallbackOrder;
+      console.warn('API createOrder failed:', err);
+      throw err;
     }
   },
 
@@ -494,6 +779,10 @@ export const useStore = create<StoreState>((set, get) => ({
       });
     });
 
+    signalRService.onTableStatusChanged((tableId, status) => {
+      console.log(`📡 SignalR Table #${tableId} status: ${status}`);
+    });
+
     // Then start connection
     try {
       await signalRService.startConnection(sId);
@@ -507,7 +796,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const res = await authApi.loginStaff({ username, password });
     localStorage.setItem('token', res.token);
     localStorage.setItem('user', JSON.stringify(res));
-    set({ user: res, currentStoreId: res.storeId || 1 });
+    if (!res.storeId) throw new Error('Tài khoản chưa được gán cửa hàng.');
+    set({ user: res, currentStoreId: res.storeId });
   },
 
   logout: () => {

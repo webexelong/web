@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import MobileBottomNav from '../../components/MobileBottomNav';
 import { useStore, type Order } from '../../store/useStore';
 import { orderApi } from '../../api/apis';
+import signalRService from '../../api/signalr';
 
 export default function OrderTracking() {
   const [searchParams] = useSearchParams();
@@ -11,10 +12,57 @@ export default function OrderTracking() {
   
   const { activeOrder, orders, initRealtime, currentStoreId, guestSession } = useStore();
   const [currentOrder, setCurrentOrder] = useState<Order | null>(activeOrder || null);
+  const [readyNotification, setReadyNotification] = useState<{ message: string; show: boolean } | null>(null);
 
   useEffect(() => {
     initRealtime(currentStoreId);
-  }, [currentStoreId]);
+
+    // Join order group if we have an orderId
+    if (currentOrder?.id) {
+      const numericOrderId = parseInt(currentOrder.id);
+      if (!isNaN(numericOrderId)) {
+        signalRService.joinOrderGroup(numericOrderId);
+      }
+    }
+
+    // Subscribe to OrderReady event
+    const handleOrderReady = (orderId: number, orderCode: string, message: string) => {
+      console.log(`🔔 Order Ready: ${orderCode} - ${message}`);
+      
+      // Show notification
+      setReadyNotification({ message, show: true });
+
+      // Play notification sound
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.warn('Failed to play notification sound:', e));
+      } catch (e) {
+        console.warn('Audio not supported:', e);
+      }
+
+      // Trigger vibration on mobile
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+      }
+
+      // Auto-hide notification after 10 seconds
+      setTimeout(() => {
+        setReadyNotification(prev => prev ? { ...prev, show: false } : null);
+      }, 10000);
+    };
+
+    signalRService.onOrderReady(handleOrderReady);
+
+    return () => {
+      signalRService.offOrderReady(handleOrderReady);
+      if (currentOrder?.id) {
+        const numericOrderId = parseInt(currentOrder.id);
+        if (!isNaN(numericOrderId)) {
+          signalRService.leaveOrderGroup(numericOrderId);
+        }
+      }
+    };
+  }, [currentStoreId, currentOrder?.id]);
 
   useEffect(() => {
     // Priority 1: Active order in store
@@ -76,10 +124,11 @@ export default function OrderTracking() {
   }, [codeParam, guestIdParam, activeOrder, orders, guestSession]);
 
   const status = currentOrder?.status || 'pending';
+  const isAwaitingPayment = status === 'awaiting_payment';
   const isStep1 = true;
-  const isStep2 = status === 'preparing' || status === 'ready' || status === 'served' || status === 'paid' || status === 'done';
-  const isStep3 = status === 'ready' || status === 'served' || status === 'paid' || status === 'done';
-  const isStep4 = status === 'served' || status === 'paid' || status === 'done';
+  const isStep2 = ['preparing', 'ready', 'served', 'completed', 'paid'].includes(status) && status !== 'confirmed' && status !== 'pending' && status !== 'awaiting_payment';
+  const isStep3 = ['ready', 'served', 'completed', 'paid'].includes(status) && status !== 'confirmed' && status !== 'pending' && status !== 'awaiting_payment' && status !== 'preparing';
+  const isStep4 = status === 'served' || status === 'completed' || status === 'paid';
 
   return (
     <div className="min-h-screen flex flex-col font-body-md text-body-md bg-background text-on-surface pb-24 md:pb-12">
@@ -117,11 +166,38 @@ export default function OrderTracking() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
             {/* Tracking Card */}
             <div className="lg:col-span-8 space-y-gutter">
+              {isAwaitingPayment && (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between text-amber-900 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-amber-600 text-lg">schedule</span>
+                    <span>Đơn hàng đang chờ thanh toán PayOS để gửi sang quầy Barista pha chế.</span>
+                  </div>
+                  <Link 
+                    to={`/order-success?code=${currentOrder.orderCode}&orderId=${currentOrder.id}`}
+                    className="font-bold underline text-primary hover:text-primary-container whitespace-nowrap ml-2"
+                  >
+                    Quét mã PayOS ngay
+                  </Link>
+                </div>
+              )}
+
               <div className="bg-surface-container-lowest p-stack-lg rounded-xl shadow-sm border border-outline-variant/30">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-stack-lg">
                   <div>
                     <span className="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-widest font-bold">
-                      {status === 'pending' ? 'Đã Tiếp Nhận' : status === 'preparing' ? 'Đang Pha Chế' : (status === 'ready' || status === 'served') ? 'Món Đã Sẵn Sàng' : 'Hoàn Thành'}
+                      {status === 'awaiting_payment'
+                        ? 'Đang Chờ Thanh Toán PayOS...'
+                        : status === 'pending' 
+                        ? 'Đã Tiếp Nhận Đơn Hàng' 
+                        : status === 'confirmed' 
+                        ? 'Đã Thanh Toán • Chờ Quầy Bar Nhận Đơn' 
+                        : status === 'preparing' 
+                        ? 'Đang Pha Chế Thức Uống' 
+                        : status === 'ready' 
+                        ? 'Món Đã Sẵn Sàng Phục Vụ' 
+                        : status === 'served'
+                        ? 'Đã Phục Vụ Tại Bàn'
+                        : 'Đơn Hàng Đã Hoàn Thành'}
                     </span>
                     <h2 className="font-headline-lg text-headline-lg text-primary mt-1 font-bold">
                       Đơn hàng #{currentOrder.orderCode || currentOrder.id}
@@ -129,7 +205,13 @@ export default function OrderTracking() {
                   </div>
                   <div className="bg-primary-fixed px-4 py-2 rounded-full">
                     <span className="text-on-primary-fixed font-label-md text-label-md font-bold">
-                      {status === 'pending' ? 'Dự kiến: 10-15 phút' : status === 'preparing' ? 'Dự kiến: 5 phút nữa' : 'Đã chuẩn bị xong'}
+                      {status === 'awaiting_payment'
+                        ? 'Chờ thanh toán'
+                        : status === 'pending' || status === 'confirmed'
+                        ? 'Dự kiến: 10-15 phút' 
+                        : status === 'preparing' 
+                        ? 'Dự kiến: 5 phút nữa' 
+                        : 'Đã chuẩn bị xong'}
                     </span>
                   </div>
                 </div>
@@ -143,7 +225,13 @@ export default function OrderTracking() {
                         <span className="material-symbols-outlined text-xl">check</span>
                       </div>
                       <span className={`text-label-md font-label-md text-center ${isStep1 ? 'text-secondary font-bold' : 'text-on-surface-variant'}`}>Đã tiếp nhận</span>
-                      <span className="text-xs text-on-surface-variant mt-1">Đã xác nhận</span>
+                      <span className="text-xs text-on-surface-variant mt-1">
+                        {status === 'awaiting_payment'
+                          ? 'Chờ thanh toán'
+                          : status === 'confirmed' 
+                          ? '✓ Đã TT PayOS' 
+                          : 'Đã xác nhận'}
+                      </span>
                     </div>
 
                     {/* Step 2: Preparing */}
@@ -229,16 +317,38 @@ export default function OrderTracking() {
                   ))}
                 </div>
                 
-                <div className="border-t border-outline-variant/20 pt-stack-md space-y-2 text-sm">
-                  <div className="flex justify-between text-on-surface-variant">
-                    <span>Số lượng</span>
-                    <span>{currentOrder.items?.reduce((acc, i) => acc + i.quantity, 0) || 1} món</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-base text-on-surface pt-2 border-t border-outline-variant/10">
-                    <span>Tổng tiền</span>
-                    <span className="text-primary text-lg font-bold">{currentOrder.total.toLocaleString('vi-VN')}đ</span>
-                  </div>
-                </div>
+                {(() => {
+                  const subTotal = currentOrder.rawDto?.subTotal 
+                    || currentOrder.items?.reduce((sum, i) => sum + (i.price * i.quantity), 0) 
+                    || currentOrder.total;
+                  const discount = currentOrder.rawDto?.discountAmount || Math.max(0, subTotal - currentOrder.total);
+                  const pointsUsed = currentOrder.rawDto?.pointsUsed || 0;
+
+                  return (
+                    <div className="border-t border-outline-variant/20 pt-stack-md space-y-2 text-sm">
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>Số lượng</span>
+                        <span>{currentOrder.items?.reduce((acc, i) => acc + i.quantity, 0) || 1} món</span>
+                      </div>
+                      <div className="flex justify-between text-on-surface-variant">
+                        <span>Tạm tính (Tiền món)</span>
+                        <span>{subTotal.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                      {discount > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-medium">
+                          <span>
+                            {pointsUsed > 0 ? `Ưu đãi & Điểm thưởng (${pointsUsed} điểm)` : 'Giảm giá ưu đãi'}
+                          </span>
+                          <span>-{discount.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base text-on-surface pt-2 border-t border-outline-variant/10">
+                        <span>Tổng thanh toán</span>
+                        <span className="text-primary text-lg font-bold">{currentOrder.total.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="mt-6">
                   <Link to="/" className="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
@@ -251,6 +361,33 @@ export default function OrderTracking() {
           </div>
         )}
       </main>
+
+      {/* Order Ready Notification Modal */}
+      {readyNotification && readyNotification.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 animate-fadeIn">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4 animate-bounce">
+                <span className="material-symbols-outlined text-5xl text-green-600 dark:text-green-400">
+                  check_circle
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-primary dark:text-orange-400 mb-2">
+                Đơn Hàng Sẵn Sàng! 🎉
+              </h2>
+              <p className="text-base text-on-surface dark:text-gray-200 mb-6">
+                {readyNotification.message}
+              </p>
+              <button
+                onClick={() => setReadyNotification(null)}
+                className="w-full px-6 py-3 bg-primary dark:bg-orange-600 text-white rounded-xl font-bold text-base hover:bg-primary-container dark:hover:bg-orange-700 transition-colors shadow-md"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MobileBottomNav />
     </div>

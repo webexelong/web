@@ -15,8 +15,8 @@ export default function AIRecommendations() {
   const [addedToast, setAddedToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'suggestions'>('chat');
 
-  const tenantId = storeInfo?.tenantId || 1;
-  const storeId = currentStoreId || storeInfo?.storeId || 1;
+  const tenantId = storeInfo?.tenantId || 0;
+  const storeId = currentStoreId || storeInfo?.storeId || 0;
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Lấy món gần nhất trong giỏ hàng làm điểm nhấn
@@ -90,7 +90,7 @@ export default function AIRecommendations() {
   };
 
   return (
-    <div className="bg-[#FAF8F5] text-[#2C2420] font-sans overflow-x-hidden min-h-screen py-4">
+    <div className="bg-[#FAF8F5] text-[#2C2420] font-sans overflow-x-hidden min-h-[calc(100vh-70px)] pb-24 md:pb-12">
       {/* Toast Notification */}
       {addedToast && (
         <div className="fixed top-20 right-4 z-50 bg-[#1E293B] text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-700 animate-bounce">
@@ -99,15 +99,15 @@ export default function AIRecommendations() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 py-2 sm:py-4 space-y-5 sm:space-y-8">
-        {/* Mode Navigation Tabs - Sticky on Mobile */}
-        <div className="sticky top-[58px] sm:static z-30 py-1 sm:py-0 bg-[#FAF8F5]/90 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none">
-          <div className="flex items-center justify-center p-1.5 bg-stone-200/90 backdrop-blur rounded-2xl max-w-lg mx-auto shadow-sm border border-stone-300/40">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 pt-2.5 pb-4 space-y-3 sm:space-y-6">
+        {/* Mode Navigation Tabs */}
+        <div className="py-0.5">
+          <div className="flex items-center justify-center p-1.5 bg-stone-200/90 rounded-2xl max-w-lg mx-auto shadow-xs border border-stone-300/40">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'chat'
-                  ? 'bg-gradient-to-r from-amber-700 to-amber-900 text-white shadow-md scale-[1.01]'
+                  ? 'bg-gradient-to-r from-amber-700 to-amber-900 text-white shadow-md'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-300/40'
               }`}
             >
@@ -119,9 +119,9 @@ export default function AIRecommendations() {
             </button>
             <button
               onClick={() => setActiveTab('suggestions')}
-              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'suggestions'
-                  ? 'bg-white text-stone-900 shadow-md scale-[1.01]'
+                  ? 'bg-white text-stone-900 shadow-md'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-300/40'
               }`}
             >
@@ -451,20 +451,6 @@ export default function AIRecommendations() {
           </div>
         </section>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-stone-900 text-stone-400 text-xs py-8 px-4 mt-12 pb-24 md:pb-8">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-amber-600 flex items-center justify-center text-white font-bold text-xs">
-              AI
-            </div>
-            <span className="font-bold text-stone-200">AI-SMARTSERVE</span>
-            <span>— Trợ lý ẩm thực thông minh</span>
-          </div>
-          <p>© 2026 WebCafe AI-SmartServe. All rights reserved.</p>
-        </div>
-      </footer>
 
       <MobileBottomNav />
     </div>

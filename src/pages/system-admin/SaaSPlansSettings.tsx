@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   HelpCircle
 } from 'lucide-react';
+import { systemAdminApi } from '../../api/apis';
+import { useNotification } from '../../components/NotificationProvider';
 
 interface SaaSPlan {
   id: string;
@@ -24,12 +26,21 @@ interface SaaSPlan {
   description: string;
 }
 
+const FEATURE_OPTIONS = [
+  ['inventory', 'Quản lý kho'],
+  ['inventory_bom', 'Định lượng BOM'],
+  ['inventory_ai', 'AI quản lý kho'],
+  ['advanced_analytics', 'Analytics nâng cao'],
+  ['multi_store', 'Nhiều cửa hàng'],
+  ['centralized_reports', 'Báo cáo tập trung']
+] as const;
+
 const DEFAULT_PLANS: SaaSPlan[] = [
   {
     id: 'basic',
-    name: 'Starter / Cơ Bản',
+    name: 'Basic',
     subtitle: 'Dành cho các quán cafe độc lập hoặc xe takeaway',
-    priceMonth: 290000,
+    priceMonth: 239000,
     maxStores: 1,
     maxTablesPerStore: 10,
     features: [
@@ -42,10 +53,10 @@ const DEFAULT_PLANS: SaaSPlan[] = [
     description: 'Giải pháp số hóa gọi món tiết kiệm, giúp quán vận hành trơn tru không cần nhiều nhân viên thu ngân.'
   },
   {
-    id: 'pro',
-    name: 'Pro / Phổ Thông',
+    id: 'premium',
+    name: 'Premium',
     subtitle: 'Dành cho quán cafe vừa & chuỗi 2 - 3 chi nhánh',
-    priceMonth: 790000,
+    priceMonth: 1299000,
     maxStores: 3,
     maxTablesPerStore: null,
     isPopular: true,
@@ -61,10 +72,10 @@ const DEFAULT_PLANS: SaaSPlan[] = [
     description: 'Gói dịch vụ được ưa chuộng nhất, trang bị đầy đủ nghiệp vụ kho, nhân sự và quản lý nhiều chi nhánh.'
   },
   {
-    id: 'premium',
-    name: 'Enterprise / Chuỗi Lớn',
+    id: 'pro',
+    name: 'Pro',
     subtitle: 'Dành cho thương hiệu FnB lớn & chuỗi nhượng quyền',
-    priceMonth: 1500000,
+    priceMonth: 1999000,
     maxStores: 99,
     maxTablesPerStore: null,
     features: [
@@ -81,6 +92,7 @@ const DEFAULT_PLANS: SaaSPlan[] = [
 ];
 
 export default function SaaSPlansSettings() {
+  const { confirm } = useNotification();
   const [plans, setPlans] = useState<SaaSPlan[]>(() => {
     try {
       const saved = localStorage.getItem('system_saas_plans');
@@ -94,7 +106,20 @@ export default function SaaSPlansSettings() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editMaxStores, setEditMaxStores] = useState<number>(1);
+  const [editMaxStaff, setEditMaxStaff] = useState<number>(5);
+  const [editMaxTables, setEditMaxTables] = useState<number>(20);
+  const [editFeatures, setEditFeatures] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    systemAdminApi.getPlans().then((remote: any[]) => {
+      if (!remote?.length) return;
+      setPlans(current => current.map(local => {
+        const server = remote.find(item => item.code === local.id);
+        return server ? { ...local, name: server.name || local.name, priceMonth: Number(server.monthlyPrice), maxStores: server.maxStores, maxTablesPerStore: server.maxTablesPerStore, features: Object.entries(server.features ?? {}).filter(([, enabled]) => enabled).map(([code]) => code) } : local;
+      }));
+    }).catch(() => undefined);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -105,9 +130,12 @@ export default function SaaSPlansSettings() {
     setEditingPlanId(plan.id);
     setEditPrice(plan.priceMonth);
     setEditMaxStores(plan.maxStores);
+    setEditMaxStaff(plan.id === 'basic' ? 5 : plan.id === 'premium' ? 20 : 50);
+    setEditMaxTables(plan.maxTablesPerStore ?? 100);
+    setEditFeatures(Object.fromEntries(FEATURE_OPTIONS.map(([code]) => [code, plan.id !== 'basic'])));
   };
 
-  const handleSaveEdit = (planId: string) => {
+  const handleSaveEdit = async (planId: string) => {
     const updated = plans.map(p => {
       if (p.id === planId) {
         return {
@@ -118,19 +146,26 @@ export default function SaaSPlansSettings() {
       }
       return p;
     });
-    setPlans(updated);
-    localStorage.setItem('system_saas_plans', JSON.stringify(updated));
-    setEditingPlanId(null);
-    showToast('Đã lưu cập nhật giá & cấu hình gói cước thành công!');
+    const saved = updated.find(plan => plan.id === planId);
+    if (!saved) return;
+    try {
+      await systemAdminApi.updatePlan(planId, { monthlyPrice: saved.priceMonth, maxStores: saved.maxStores, maxStaff: editMaxStaff, maxTablesPerStore: editMaxTables, isActive: true, features: editFeatures });
+      setPlans(updated);
+      localStorage.setItem('system_saas_plans', JSON.stringify(updated));
+      setEditingPlanId(null);
+      showToast('Đã lưu cấu hình gói vào hệ thống.');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'Không thể lưu cấu hình gói. Vui lòng thử lại.');
+    }
   };
 
   const handleResetDefaults = () => {
-    if (confirm('Bạn có chắc chắn muốn khôi phục bảng giá về mặc định ban đầu không?')) {
+    confirm({ tone: 'warning', title: 'Khôi phục bảng giá mặc định?', message: 'Bạn có chắc chắn muốn khôi phục bảng giá về mặc định ban đầu không?', confirmText: 'Khôi phục', onConfirm: async () => {
       setPlans(DEFAULT_PLANS);
       localStorage.removeItem('system_saas_plans');
       setEditingPlanId(null);
       showToast('Đã khôi phục bảng giá mặc định thành công.');
-    }
+    }});
   };
 
   const formatVND = (num: number) => {
@@ -227,6 +262,14 @@ export default function SaaSPlansSettings() {
                           step="10000"
                           className="w-full px-3 py-2 bg-surface-container-lowest border border-primary/40 rounded-xl text-sm font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="text-[11px] font-bold text-on-surface-variant">Nhân viên tối đa<input type="number" min="1" value={editMaxStaff} onChange={e => setEditMaxStaff(Number(e.target.value))} className="mt-1 w-full px-3 py-2 bg-surface-container-lowest border rounded-xl text-sm" /></label>
+                        <label className="text-[11px] font-bold text-on-surface-variant">Bàn/cửa hàng<input type="number" min="1" value={editMaxTables} onChange={e => setEditMaxTables(Number(e.target.value))} className="mt-1 w-full px-3 py-2 bg-surface-container-lowest border rounded-xl text-sm" /></label>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="block text-[11px] font-bold text-on-surface-variant">Tính năng được phép</span>
+                        {FEATURE_OPTIONS.map(([code, label]) => <label key={code} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!editFeatures[code]} onChange={e => setEditFeatures(prev => ({ ...prev, [code]: e.target.checked }))} />{label}</label>)}
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
