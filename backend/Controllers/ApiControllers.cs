@@ -615,6 +615,22 @@ namespace WebCafe.Backend.Controllers
             return Ok(ApiResponse<StorePaymentConfigDto>.Ok(config));
         }
 
+        [HttpGet("store/{storeId}/availability")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ApiResponse<object>>> GetStorePayOSAvailability(int storeId)
+        {
+            var store = await _db.Stores.AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.IsActive)
+                .Select(s => new { s.PayOSClientId, s.PayOSApiKey, s.PayOSChecksumKey })
+                .FirstOrDefaultAsync();
+            if (store == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy cửa hàng."));
+
+            var isConfigured = !string.IsNullOrWhiteSpace(store.PayOSClientId)
+                && !string.IsNullOrWhiteSpace(store.PayOSApiKey)
+                && !string.IsNullOrWhiteSpace(store.PayOSChecksumKey);
+            return Ok(ApiResponse<object>.Ok(new { hasPayOSConfigured = isConfigured }));
+        }
+
         [HttpPut("store/{storeId}/config")]
         [Authorize(Policy = AppPolicies.TenantAdminAccess)]
         public async Task<ActionResult<ApiResponse<StorePaymentConfigDto>>> UpdateStorePaymentConfig(int storeId, [FromBody] UpdateStorePaymentConfigDto dto)

@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import CustomerLayout from './layouts/CustomerLayout';
-import Menu from './pages/customer/Menu';
+const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
+const Menu = lazy(() => import('./pages/customer/Menu'));
 
 const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
@@ -13,6 +13,7 @@ const DemoLanding = lazy(() => import('./pages/DemoLanding'));
 const DemoBackoffice = lazy(() => import('./pages/DemoBackoffice'));
 const OwnerSignup = lazy(() => import('./pages/OwnerSignup'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ProductDetail = lazy(() => import('./pages/customer/ProductDetail'));
 const AIRecommendations = lazy(() => import('./pages/customer/AIRecommendations'));
 const Cart = lazy(() => import('./pages/customer/Cart'));
@@ -53,6 +54,7 @@ function App() {
         {/* Auth Route */}
         <Route path="/login" element={<Login />} />
         <Route path="/system-admin/login" element={<Login />} />
+        <Route path="/landingpage" element={<LandingPage />} />
         <Route path="/demo" element={<DemoLanding />} />
         <Route path="/demo/backoffice" element={<Navigate to="/demo/owner/dashboard" replace />} />
         <Route path="/demo/owner" element={<Navigate to="/demo/owner/dashboard" replace />} />
@@ -71,7 +73,7 @@ function App() {
         {/* Customer Routes - Wrapped in CustomerLayout */}
         <Route element={<CustomerLayout />}>
           <Route path="/" element={<Menu />} />
-          <Route path="/menu" element={<Navigate to="/" replace />} />
+          <Route path="/menu" element={<Menu />} />
           <Route path="/ai-suggest" element={<AIRecommendations />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />

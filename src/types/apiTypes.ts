@@ -230,6 +230,21 @@ export interface SubscriptionPlanDto {
   features: Record<string, boolean>;
 }
 
+export interface SystemNotificationDto {
+  notificationId: number;
+  type: string;
+  title: string;
+  message: string;
+  tenantId: number;
+  tenantName: string;
+  ownerEmail: string;
+  previousPlanCode: string;
+  newPlanCode: string;
+  standardMonthlyPrice: number;
+  createdAt: string;
+  isRead: boolean;
+}
+
 export interface StaffDto {
   staffId: number;
   storeId: number;

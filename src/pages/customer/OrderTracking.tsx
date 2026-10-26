@@ -110,7 +110,7 @@ export default function OrderTracking() {
             <p className="text-on-surface-variant max-w-md text-sm">
               Hãy chọn những món thức uống tuyệt hảo từ thực đơn của chúng tôi để bắt đầu trải nghiệm nhé!
             </p>
-            <Link to="/" className="mt-2 px-8 py-3 bg-primary text-white rounded-full font-label-md font-bold shadow-md hover:bg-primary-container transition-all active:scale-95">
+            <Link to="/menu" className="mt-2 px-8 py-3 bg-primary text-white rounded-full font-label-md font-bold shadow-md hover:bg-primary-container transition-all active:scale-95">
               Khám Phá Thực Đơn
             </Link>
           </div>
@@ -303,7 +303,7 @@ export default function OrderTracking() {
                 })()}
 
                 <div className="mt-6">
-                  <Link to="/" className="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                  <Link to="/menu" className="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
                     <span className="material-symbols-outlined text-sm">add</span>
                     Đặt thêm món khác
                   </Link>

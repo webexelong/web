@@ -436,7 +436,7 @@ export default function AIRecommendations() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Link
-              to="/"
+              to="/menu"
               className="flex-1 sm:flex-none text-center px-5 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold hover:bg-stone-50 transition-colors"
             >
               Thực Đơn Đầy Đủ

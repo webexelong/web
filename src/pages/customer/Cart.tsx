@@ -4,7 +4,7 @@ import MobileBottomNav from '../../components/MobileBottomNav';
 import { ShoppingCart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { customerApi } from '../../api/apis';
+import { customerApi, paymentApi } from '../../api/apis';
 import { apiClient } from '../../api/apiClient';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
@@ -33,8 +33,8 @@ export default function Cart() {
   const [voucherError, setVoucherError] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [orderNote, setOrderNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Loyalty Points State
@@ -133,9 +133,10 @@ export default function Cart() {
     setPointsError('');
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (paymentMethod: 'cash' | 'payos') => {
     if (cart.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
+    setCheckoutError('');
     try {
       if (guestSession) {
         updateGuestInfo(customerName, customerPhone);
@@ -143,15 +144,27 @@ export default function Cart() {
 
       const tableToUse = guestSession?.tableId || currentTableId || currentTable;
       if (!tableToUse) {
-        setPointsError('Chưa xác định được số bàn của bạn. Vui lòng quét mã QR tại bàn trước khi đặt món.');
+        setCheckoutError('Chưa xác định được số bàn của bạn. Vui lòng quét mã QR tại bàn trước khi đặt món.');
         setIsSubmitting(false);
         return;
       }
-      const order = await createOrder(tableToUse, customerPhone, customerName, orderNote, 'qr_table', undefined, pointsToUse);
-      navigate(`/order-success?code=${order.orderCode}&orderId=${order.id}`);
+      const storeId = guestSession?.storeId || currentStoreId;
+      if (paymentMethod === 'payos') {
+        if (!storeId || storeId <= 0) {
+          setCheckoutError('Không xác định được cửa hàng để kiểm tra thanh toán QR. Vui lòng chọn tiền mặt hoặc quét lại mã QR tại bàn.');
+          return;
+        }
+        const hasPayOSConfigured = await paymentApi.getStorePayOSAvailability(storeId);
+        if (!hasPayOSConfigured) {
+          setCheckoutError('Quán chưa cấu hình thanh toán QR PayOS. Vui lòng chọn thanh toán tiền mặt.');
+          return;
+        }
+      }
+      const order = await createOrder(tableToUse, customerPhone, customerName, '', 'qr_table', paymentMethod, pointsToUse);
+      navigate(`/order-success?code=${order.orderCode}&orderId=${order.id}&method=${paymentMethod}`);
     } catch (err: any) {
       console.error('Order creation error:', err);
-      setPointsError(err?.response?.data?.message || err?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.');
+      setCheckoutError(err?.response?.data?.message || err?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -210,7 +223,7 @@ export default function Cart() {
                   <span className="material-symbols-outlined text-[64px] text-outline-variant" style={{ fontVariationSettings: "'FILL' 1" }}>shopping_cart</span>
                   <h2 className="font-headline-md text-on-surface font-bold">Giỏ hàng của bạn đang trống.</h2>
                   <p className="text-on-surface-variant text-sm">Hãy khám phá các món đồ uống thơm ngon và thêm vào giỏ nhé!</p>
-                  <Link to="/" className="px-8 py-3 bg-primary text-white rounded-full font-label-md shadow-md hover:bg-primary-container transition-all active:scale-95 font-bold mt-2">
+                  <Link to="/menu" className="px-8 py-3 bg-primary text-white rounded-full font-label-md shadow-md hover:bg-primary-container transition-all active:scale-95 font-bold mt-2">
                     Khám Phá Thực Đơn
                   </Link>
                 </div>
@@ -277,52 +290,6 @@ export default function Cart() {
               )}
             </section>
 
-            {/* Customer Details Form */}
-            {cart.length > 0 && (
-              <section className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/20 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-headline-md text-label-md font-bold text-primary">Thông Tin Bàn & Ghi Chú</h3>
-                  {(guestSession?.tableId || currentTable) && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary-container text-on-secondary-container rounded-full">
-                      <span className="material-symbols-outlined text-sm">table_restaurant</span>
-                      <span className="text-xs font-bold">Bàn của bạn: {guestSession?.tableId || currentTable}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-on-surface-variant block mb-1">Tên khách hàng (Tùy chọn)</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Anh Minh"
-                      className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-on-surface-variant block mb-1">Số điện thoại tích điểm (Tùy chọn)</label>
-                    <input
-                      type="tel"
-                      placeholder="VD: 0901234567"
-                      className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-on-surface-variant block mb-1">Ghi chú cho quầy thu ngân / Bếp</label>
-                  <input
-                    type="text"
-                    placeholder="VD: Mang ra bàn sớm giúp mình nhé"
-                    className="w-full px-4 py-2.5 bg-surface border border-outline-variant/40 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    value={orderNote}
-                    onChange={(e) => setOrderNote(e.target.value)}
-                  />
-                </div>
-              </section>
-            )}
           </div>
 
           {/* Right Side: Order Summary */}
@@ -471,15 +438,32 @@ export default function Cart() {
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <button
-                  onClick={handleCheckout}
-                  disabled={isSubmitting}
-                  className="w-full py-4 bg-primary text-white rounded-full font-headline-md text-label-md font-bold hover:bg-primary-container transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined">send</span>
-                  {isSubmitting ? 'Đang Gửi Đơn...' : `Xác Nhận Đặt Món • ${total.toLocaleString('vi-VN')}đ`}
-                </button>
+                {checkoutError && (
+                  <p role="alert" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    {checkoutError}
+                  </p>
+                )}
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={() => handleCheckout('cash')}
+                    disabled={isSubmitting}
+                    className="w-full rounded-2xl border border-primary/30 bg-surface px-4 py-4 text-primary font-bold hover:bg-primary/5 transition-all active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined block mb-1">payments</span>
+                    {isSubmitting ? 'Đang gửi đơn...' : 'Đặt món, trả tiền mặt'}
+                  </button>
+                  <button
+                    onClick={() => handleCheckout('payos')}
+                    disabled={isSubmitting}
+                    className="w-full rounded-2xl bg-primary px-4 py-4 text-white font-bold hover:bg-primary-container transition-all active:scale-[0.99] shadow-lg disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined block mb-1">qr_code_2</span>
+                    {isSubmitting ? 'Đang gửi đơn...' : 'Thanh toán QR PayOS'}
+                  </button>
+                </div>
+                <p className="mt-2 text-center text-xs text-on-surface-variant">
+                  Tiền mặt: nhân viên nhận đơn ngay, bạn thanh toán tại quán. QR: quét mã sau khi đặt món thành công.
+                </p>
               </div>
             </div>
           )}

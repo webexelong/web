@@ -158,7 +158,7 @@ export default function ProductDetail() {
           {/* Header Info */}
           <div className="space-y-2">
             <nav className="flex text-on-surface-variant font-label-sm text-xs gap-1.5 items-center flex-wrap">
-              <Link to="/" className="hover:text-primary font-semibold">Thực Đơn</Link>
+              <Link to="/menu" className="hover:text-primary font-semibold">Thực Đơn</Link>
               <span>/</span>
               <span className="hover:text-primary font-semibold">{item.categoryName || item.categoryId || 'Đồ Uống'}</span>
               <span>/</span>
