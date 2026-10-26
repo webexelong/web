@@ -1,9 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-test('guest can open the landing page without authentication', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveTitle(/AI-SMARTSERVE|Handcrafted Menu/i);
+test('prospective owners can open the marketing landing page', async ({ page }) => {
+  await page.goto('/landingpage');
+  await expect(page).toHaveTitle(/AI-SMARTSERVE/);
+  await expect(page.getByRole('heading', { name: /Khách tự gọi món bằng QR/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Đăng ký dùng thử 14 ngày/ }).first()).toHaveAttribute('href', '/signup');
   await expect(page.locator('body')).toBeVisible();
+});
+
+test('main site root remains the customer menu', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'DANH MỤC MÓN' })).toBeVisible();
 });
 
 test('protected admin route redirects an anonymous user to login', async ({ page }) => {

@@ -12,12 +12,13 @@ export default function OrderSuccess() {
   const [searchParams] = useSearchParams();
   const orderCodeParam = searchParams.get('code') || searchParams.get('orderCode');
   const orderIdParam = searchParams.get('orderId');
+  const isCashOrder = searchParams.get('method') === 'cash';
 
   const { activeOrder, guestSession, orders, initRealtime, currentStoreId } = useStore();
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [payosData, setPayosData] = useState<PayOSPaymentDto | null>(null);
-  const [isLoadingPayOS, setIsLoadingPayOS] = useState<boolean>(true);
+  const [isLoadingPayOS, setIsLoadingPayOS] = useState<boolean>(!isCashOrder);
   // The return URL is user-controlled. Only backend payment/order state is authoritative.
   const [isPaid, setIsPaid] = useState<boolean>(false);
   const [, setPollCount] = useState<number>(0);
@@ -134,11 +135,15 @@ export default function OrderSuccess() {
   // Trigger PayOS Create Link on mount or when order id/code is resolved
   useEffect(() => {
     if (hasInitiatedRef.current) return;
+    if (isCashOrder) {
+      setIsLoadingPayOS(false);
+      return;
+    }
     if (effectiveOrderId || effectiveOrderCode) {
       hasInitiatedRef.current = true;
       triggerInitPayOS();
     }
-  }, [effectiveOrderId, effectiveOrderCode, triggerInitPayOS]);
+  }, [effectiveOrderId, effectiveOrderCode, triggerInitPayOS, isCashOrder]);
 
   // Generate QR Code Image from PayOS EMVCo string payload or VietQR CDN
   useEffect(() => {
@@ -354,8 +359,8 @@ export default function OrderSuccess() {
             </h2>
             <p className="text-sm text-on-surface-variant max-w-md mx-auto">
               {isPaid 
-                ? 'Đơn hàng của bạn đã được xác nhận thanh toán. Quán đang chuẩn bị đồ uống thơm ngon ngay!' 
-                : 'Vui lòng quét mã QR PayOS bên dưới để hoàn tất thanh toán. Quán sẽ nhận đơn và tiến hành pha chế ngay khi bạn chuyển khoản thành công!'}
+                ? (isCashOrder ? 'Nhân viên đã ghi nhận thanh toán tiền mặt. Quán đang chuẩn bị đồ uống cho bạn!' : 'Đơn hàng của bạn đã được xác nhận thanh toán. Quán đang chuẩn bị đồ uống thơm ngon ngay!')
+                : (isCashOrder ? 'Đơn đã được gửi đến nhân viên. Bạn thanh toán tiền mặt tại quán sau khi được phục vụ.' : 'Vui lòng quét mã QR PayOS bên dưới để hoàn tất thanh toán. Quán sẽ nhận đơn và tiến hành pha chế ngay khi bạn chuyển khoản thành công!')}
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap pt-2">
               <span className="text-xs text-on-surface-variant uppercase tracking-widest font-bold">Mã đơn hàng:</span>
@@ -376,7 +381,7 @@ export default function OrderSuccess() {
             <div className="bg-emerald-50 border-2 border-emerald-500/30 rounded-2xl p-6 text-center space-y-4 shadow-sm animate-in fade-in">
               <div className="flex items-center justify-center gap-2 text-emerald-700 font-bold text-lg">
                 <ShieldCheck className="w-6 h-6 text-emerald-600" />
-                <span>Giao dịch PayOS đã được bảo chứng & hoàn tất</span>
+                <span>{isCashOrder ? 'Nhân viên đã xác nhận thu tiền mặt' : 'Giao dịch PayOS đã được bảo chứng & hoàn tất'}</span>
               </div>
               <p className="text-xs text-emerald-800">
                 Số tiền: <strong className="text-base">{totalAmount.toLocaleString('vi-VN')}đ</strong> • Trạng thái: <span className="bg-emerald-200 text-emerald-900 px-2.5 py-0.5 rounded-full font-bold uppercase text-[11px]">Đã thanh toán</span>
@@ -390,6 +395,23 @@ export default function OrderSuccess() {
                   Theo dõi tiến độ pha chế trực tiếp
                 </Link>
               </div>
+            </div>
+          ) : isCashOrder ? (
+            <div className="bg-amber-50 border-2 border-amber-300/70 rounded-2xl p-6 text-center space-y-3 shadow-sm">
+              <div className="flex items-center justify-center gap-2 text-amber-900 font-bold text-lg">
+                <Clock className="w-6 h-6" />
+                <span>Đơn đang chờ thanh toán tại quán</span>
+              </div>
+              <p className="text-sm text-amber-900/80">
+                Nhân viên đã nhận được đơn và sẽ thu {totalAmount.toLocaleString('vi-VN')}đ bằng tiền mặt sau khi phục vụ.
+              </p>
+              <Link
+                to={guestSession ? `/tracking?guestId=${guestSession.guestId}` : `/tracking?code=${displayOrder.orderCode}`}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-primary/90"
+              >
+                <span className="material-symbols-outlined text-base">receipt_long</span>
+                Theo dõi tiến độ đơn
+              </Link>
             </div>
           ) : (
             <div className="bg-surface-container-lowest rounded-2xl p-6 border-2 border-primary/30 shadow-xl space-y-5 text-left relative z-10">
@@ -607,7 +629,7 @@ export default function OrderSuccess() {
           {/* Navigation Action Buttons */}
           <div className="pt-2 relative z-10">
             <Link 
-              to="/" 
+              to="/menu"
               className="w-full bg-primary hover:bg-primary/95 active:scale-[0.98] text-white font-bold text-sm py-3.5 rounded-full transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
             >
               <span className="material-symbols-outlined text-base">home</span>

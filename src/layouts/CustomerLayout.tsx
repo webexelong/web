@@ -27,7 +27,7 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-background font-body-md text-on-surface">
       {/* Header/TopAppBar - Responsive */}
-      <header className="sticky top-0 z-50 w-full bg-surface/95 backdrop-blur-md border-b border-outline-variant/10 shadow-sm h-[104px] flex items-center">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-surface/95 backdrop-blur-md border-b border-outline-variant/10 shadow-sm h-[104px] flex items-center md:sticky md:left-auto md:right-auto">
         <div className="flex justify-between items-center px-4 sm:px-6 md:px-8 w-full max-w-7xl mx-auto">
           {/* Left: Logo + Brand */}
           <Link 
@@ -100,11 +100,11 @@ export default function CustomerLayout() {
             <Link 
               to="/cart" 
               className="relative p-2 sm:p-2.5 rounded-full hover:bg-surface-container-high transition-all text-primary flex items-center justify-center"
-              aria-label="Giỏ hàng"
+              aria-label={`Giỏ hàng, ${cartCount} món`}
             >
               <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-error text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 text-[10px] sm:text-xs font-bold flex items-center justify-center shadow-md animate-pulse">
+                <span aria-live="polite" className="absolute -top-1 -right-1 bg-error text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 text-[10px] sm:text-xs font-bold flex items-center justify-center shadow-md">
                   {cartCount}
                 </span>
               )}
@@ -114,7 +114,7 @@ export default function CustomerLayout() {
       </header>
 
       {/* Main Content - Full width responsive */}
-      <main className="flex-1 w-full">
+      <main className="flex-1 w-full pt-[104px] md:pt-0">
         <Outlet />
       </main>
 
@@ -128,7 +128,7 @@ export default function CustomerLayout() {
           <div className="flex flex-wrap justify-center gap-4 text-xs text-on-surface-variant">
             <a className="hover:text-primary transition-colors cursor-pointer">Chính Sách</a>
             <a className="hover:text-primary transition-colors cursor-pointer">Điều Khoản</a>
-            <a className="hover:text-primary transition-colors cursor-pointer">Liên Hệ</a>
+            <Link to="/landingpage" className="hover:text-primary transition-colors">Dành cho chủ quán</Link>
           </div>
         </div>
       </footer>

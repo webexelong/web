@@ -10,6 +10,7 @@ namespace WebCafe.Backend.Infrastructure.Data
         }
 
         public DbSet<SystemAdmin> SystemAdmins => Set<SystemAdmin>();
+        public DbSet<SystemNotification> SystemNotifications => Set<SystemNotification>();
         public DbSet<Tenant> Tenants => Set<Tenant>();
         public DbSet<Store> Stores => Set<Store>();
         public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();

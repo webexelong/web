@@ -1,12 +1,42 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { systemNotificationApi } from '../api/apis';
+import type { SystemNotificationDto } from '../types/apiTypes';
 
 export default function SystemAdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<SystemNotificationDto[]>([]);
   const { user, logout } = useAuthStore();
+
+  useEffect(() => {
+    let mounted = true;
+    const loadNotifications = async () => {
+      try {
+        const result = await systemNotificationApi.list();
+        if (mounted) setNotifications(result);
+      } catch {
+        // The notification area should not block the system admin workspace.
+      }
+    };
+    void loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, []);
+
+  const markNotificationRead = async (notificationId: number) => {
+    try {
+      await systemNotificationApi.markRead(notificationId);
+      setNotifications(current => current.map(item => item.notificationId === notificationId ? { ...item, isRead: true } : item));
+    } catch {
+      // Leave it unread if the server could not persist the read state.
+    }
+  };
+
+  const unreadNotifications = notifications.filter(item => !item.isRead).length;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -140,9 +170,34 @@ export default function SystemAdminLayout() {
               <span>Menu Khách</span>
             </Link>
 
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-container/50 transition-colors text-on-surface-variant">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            <div className="relative">
+              <button onClick={() => setIsNotificationsOpen(open => !open)} aria-label={`Thông báo${unreadNotifications ? `, ${unreadNotifications} chưa đọc` : ''}`} aria-expanded={isNotificationsOpen} className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-container/50 transition-colors text-on-surface-variant">
+                <span className="material-symbols-outlined">notifications</span>
+                {unreadNotifications > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-5 h-5 rounded-full bg-red-600 px-1 text-[10px] font-bold text-white flex items-center justify-center">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span>}
+              </button>
+              {isNotificationsOpen && <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-outline-variant/30 bg-white shadow-2xl z-50">
+                <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-3">
+                  <strong className="text-sm text-primary">Thông báo hệ thống</strong>
+                  <span className="text-xs text-on-surface-variant">{unreadNotifications} chưa đọc</span>
+                </div>
+                <div className="max-h-[65vh] overflow-y-auto">
+                  {notifications.length === 0 ? <p className="p-5 text-sm text-on-surface-variant">Chưa có thông báo.</p> : notifications.map(notification => <div key={notification.notificationId} className={`border-b border-outline-variant/10 p-4 last:border-0 ${notification.isRead ? 'bg-white' : 'bg-amber-50/70'}`}>
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined mt-0.5 text-base text-primary">{notification.type === 'tenant_plan_upgraded' ? 'workspace_premium' : 'notifications'}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-on-surface">{notification.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-on-surface-variant">{notification.message}</p>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-on-surface-variant">{new Date(notification.createdAt).toLocaleString('vi-VN')}</span>
+                          <Link to="/system-admin/tenants" onClick={() => { void markNotificationRead(notification.notificationId); setIsNotificationsOpen(false); }} className="text-xs font-bold text-primary hover:underline">Quản lý quán</Link>
+                        </div>
+                        {!notification.isRead && <button onClick={() => void markNotificationRead(notification.notificationId)} className="mt-2 text-[11px] font-semibold text-on-surface-variant hover:text-primary">Đánh dấu đã đọc</button>}
+                      </div>
+                    </div>
+                  </div>)}
+                </div>
+              </div>}
+            </div>
             <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-container/50 transition-colors text-on-surface-variant">
               <span className="material-symbols-outlined">settings</span>
             </button>

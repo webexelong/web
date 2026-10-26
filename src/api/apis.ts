@@ -13,6 +13,7 @@ import type {
   OwnerSignupResponse,
   MySubscriptionDto,
   SubscriptionPlanDto,
+  SystemNotificationDto,
   StaffDto,
   CreateStaffRequest,
   UpdateStaffRequest,
@@ -230,6 +231,20 @@ export const meApi = {
   getPlans: async () => {
     const res = await apiClient.get<ApiResponse<SubscriptionPlanDto[]>>('/me/subscription/plans');
     return res.data.data ?? [];
+  },
+  upgradeSubscription: async (planCode: string) => {
+    const res = await apiClient.post<ApiResponse<MySubscriptionDto>>('/me/subscription/upgrade', { planCode });
+    return res.data.data;
+  },
+};
+
+export const systemNotificationApi = {
+  list: async () => {
+    const res = await apiClient.get<ApiResponse<SystemNotificationDto[]>>('/system/notifications');
+    return res.data.data ?? [];
+  },
+  markRead: async (notificationId: number) => {
+    await apiClient.put(`/system/notifications/${notificationId}/read`);
   },
 };
 
@@ -480,6 +495,10 @@ export const paymentApi = {
   getStorePaymentConfig: async (storeId: number) => {
     const res = await apiClient.get<ApiResponse<StorePaymentConfigDto>>(`/payments/store/${storeId}/config`);
     return res.data.data;
+  },
+  getStorePayOSAvailability: async (storeId: number) => {
+    const res = await apiClient.get<ApiResponse<{ hasPayOSConfigured: boolean }>>(`/payments/store/${storeId}/availability`);
+    return res.data.data.hasPayOSConfigured;
   },
   updateStorePaymentConfig: async (storeId: number, payload: UpdateStorePaymentConfigDto) => {
     const res = await apiClient.put<ApiResponse<StorePaymentConfigDto>>(`/payments/store/${storeId}/config`, payload);

@@ -23,6 +23,41 @@ namespace WebCafe.Backend.Controllers
             _logger = logger;
         }
 
+        [HttpGet("notifications")]
+        public async Task<ActionResult<ApiResponse<List<SystemNotificationDto>>>> GetNotifications()
+        {
+            var notifications = await _db.SystemNotifications.AsNoTracking()
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(50)
+                .Select(n => new SystemNotificationDto
+                {
+                    NotificationId = n.NotificationId,
+                    Type = n.Type,
+                    Title = n.Title,
+                    Message = n.Message,
+                    TenantId = n.TenantId,
+                    TenantName = n.TenantName,
+                    OwnerEmail = n.OwnerEmail,
+                    PreviousPlanCode = n.PreviousPlanCode,
+                    NewPlanCode = n.NewPlanCode,
+                    StandardMonthlyPrice = n.StandardMonthlyPrice,
+                    CreatedAt = n.CreatedAt,
+                    IsRead = n.ReadAt != null
+                })
+                .ToListAsync();
+            return Ok(ApiResponse<List<SystemNotificationDto>>.Ok(notifications));
+        }
+
+        [HttpPut("notifications/{id:int}/read")]
+        public async Task<ActionResult<ApiResponse<object>>> MarkNotificationRead(int id)
+        {
+            var notification = await _db.SystemNotifications.FirstOrDefaultAsync(n => n.NotificationId == id);
+            if (notification == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy thông báo."));
+            notification.ReadAt ??= DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return Ok(ApiResponse<object>.Ok(new { notificationId = id, isRead = true }));
+        }
+
         /// <summary>
         /// Lấy thống kê tổng quan toàn sàn SaaS
         /// </summary>

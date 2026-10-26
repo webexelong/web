@@ -4,6 +4,22 @@ using WebCafe.Backend.Models.Common;
 
 namespace WebCafe.Backend.Models.Entities
 {
+    public class SystemNotification
+    {
+        [Key] public int NotificationId { get; set; }
+        [Required, MaxLength(60)] public string Type { get; set; } = string.Empty;
+        [Required, MaxLength(160)] public string Title { get; set; } = string.Empty;
+        [Required, MaxLength(600)] public string Message { get; set; } = string.Empty;
+        public int TenantId { get; set; }
+        [Required, MaxLength(150)] public string TenantName { get; set; } = string.Empty;
+        [Required, MaxLength(150)] public string OwnerEmail { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string PreviousPlanCode { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string NewPlanCode { get; set; } = string.Empty;
+        [Column(TypeName = "decimal(12,0)")] public decimal StandardMonthlyPrice { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? ReadAt { get; set; }
+    }
+
     public class SystemAdmin
     {
         [Key]
