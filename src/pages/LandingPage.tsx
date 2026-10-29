@@ -52,7 +52,7 @@ export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    const title = 'AI-SMARTSERVE | Vận hành quán cà phê thông minh';
+    const title = 'AI-SMARTSERVE';
     const description = 'AI-SMARTSERVE giúp quán cà phê quản lý thực đơn, đơn hàng, pha chế và hoạt động kinh doanh. Trải nghiệm dùng thử 14 ngày.';
     const canonicalUrl = 'https://www.ai-smartserve.io.vn/landingpage';
     const descriptionTag = document.querySelector<HTMLMetaElement>('meta[name="description"]');
@@ -69,9 +69,9 @@ export default function LandingPage() {
     if (canonicalTag) canonicalTag.href = canonicalUrl;
 
     return () => {
-      document.title = 'AI-SMARTSERVE | Thực đơn quán cà phê';
+      document.title = 'AI-SMARTSERVE';
       if (descriptionTag) descriptionTag.content = 'Khám phá thực đơn AI-SMARTSERVE, chọn đồ uống yêu thích và đặt món trực tuyến tại quán cà phê.';
-      if (openGraphTitle) openGraphTitle.content = 'AI-SMARTSERVE | Thực đơn quán cà phê';
+      if (openGraphTitle) openGraphTitle.content = 'AI-SMARTSERVE';
       if (openGraphDescription) openGraphDescription.content = 'Khám phá thực đơn, chọn món và đặt đồ uống trực tuyến.';
       if (openGraphUrl) openGraphUrl.content = 'https://www.ai-smartserve.io.vn/';
       if (canonicalTag) canonicalTag.href = 'https://www.ai-smartserve.io.vn/';
