@@ -27,13 +27,22 @@ interface SaaSPlan {
 }
 
 const FEATURE_OPTIONS = [
-  ['inventory', 'Quản lý kho'],
-  ['inventory_bom', 'Định lượng BOM'],
-  ['inventory_ai', 'AI quản lý kho'],
-  ['advanced_analytics', 'Analytics nâng cao'],
-  ['multi_store', 'Nhiều cửa hàng'],
-  ['centralized_reports', 'Báo cáo tập trung']
+  ['inventory', 'Quản lý kho nguyên vật liệu'],
+  ['inventory_bom', 'Định lượng công thức (BOM)'],
+  ['inventory_ai', 'Trợ lý AI quản lý kho'],
+  ['advanced_analytics', 'Báo cáo & Phân tích chuyên sâu'],
+  ['multi_store', 'Quản lý chuỗi nhiều chi nhánh'],
+  ['centralized_reports', 'Báo cáo tổng hợp tập trung']
 ] as const;
+
+const FEATURE_NAME_MAP: Record<string, string> = {
+  inventory: 'Quản lý kho nguyên vật liệu',
+  inventory_bom: 'Định lượng công thức (BOM)',
+  inventory_ai: 'Trợ lý AI quản lý kho',
+  advanced_analytics: 'Báo cáo & Phân tích chuyên sâu',
+  multi_store: 'Quản lý chuỗi nhiều chi nhánh',
+  centralized_reports: 'Báo cáo tổng hợp tập trung'
+};
 
 const DEFAULT_PLANS: SaaSPlan[] = [
   {
@@ -335,7 +344,7 @@ export default function SaaSPlansSettings() {
                         <div className="w-4 h-4 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
                           <Check size={11} strokeWidth={3} />
                         </div>
-                        <span className="leading-snug">{f}</span>
+                        <span className="leading-snug">{FEATURE_NAME_MAP[f] || f}</span>
                       </li>
                     ))}
                   </ul>

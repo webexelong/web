@@ -9,6 +9,7 @@ import { apiClient } from '../../api/apiClient';
 import { voucherApi } from '../../api/apis';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
+import { resolveDisplayUrl } from '../../components/ImageCropUpload';
 import { useNetworkStatus } from '../../components/NetworkStatusBanner';
 
 export default function Cart() {
@@ -268,7 +269,14 @@ export default function Cart() {
                   return (
                     <div key={itemKey} className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_4px_20px_rgba(85,55,34,0.05)] border border-surface-variant flex items-center gap-4 group transition-all hover:shadow-[0_8px_30px_rgba(85,55,34,0.1)]">
                       <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-low">
-                        <img className="w-full h-full object-cover" src={item.image} alt={item.name} />
+                        <img
+                          className="w-full h-full object-cover"
+                          src={resolveDisplayUrl(item.image) || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=200'}
+                          alt={item.name}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=200';
+                          }}
+                        />
                       </div>
                       <div className="flex-grow">
                         <div className="flex justify-between items-start">

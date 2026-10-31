@@ -152,7 +152,7 @@ export default function CustomerNotificationToast() {
     <div
       role="alert"
       aria-live="polite"
-      className="fixed top-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-[400px] z-[90] animate-in slide-in-from-top-4 duration-300"
+      className="fixed top-28 left-4 right-4 sm:left-auto sm:right-6 sm:w-[400px] z-[90] animate-in slide-in-from-top-4 duration-300"
     >
       <div
         onClick={handleOpenTracking}

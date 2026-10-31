@@ -277,7 +277,7 @@ export default function NotificationBell({ storeId, isAdmin = false }: Notificat
             handleClickNotification(toastAlert);
             setToastAlert(null);
           }}
-          className="fixed top-20 right-4 sm:right-8 z-50 max-w-sm w-full bg-white dark:bg-[#1E1714] border-2 border-primary/40 dark:border-amber-500/40 rounded-2xl p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer hover:scale-[1.02] transition-all animate-in slide-in-from-top-4 duration-300"
+          className="fixed top-24 left-4 right-4 sm:left-auto sm:right-8 z-50 max-w-sm mx-auto sm:mx-0 bg-white dark:bg-[#1E1714] border-2 border-primary/40 dark:border-amber-500/40 rounded-2xl p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer hover:scale-[1.02] transition-all animate-in slide-in-from-top-4 duration-300"
         >
           <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-xl">

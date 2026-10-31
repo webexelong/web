@@ -76,6 +76,7 @@ export default function Menu() {
   const [activeCategory, setActiveCategory] = useState<string>('Cà Phê Pha Máy');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [addedToast, setAddedToast] = useState<{ name: string; quantity: number } | null>(null);
   const PAGE_SIZE = 6;
 
   // Stock status per branch
@@ -182,10 +183,31 @@ export default function Menu() {
       sizeName: defaultSize?.name,
       sizeExtra: defaultSize?.extraPrice || 0
     });
+    setAddedToast({ name, quantity: 1 });
+    setTimeout(() => setAddedToast(null), 3000);
   };
 
   return (
     <div className="font-body-md text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed bg-background">
+      {/* Floating Add-to-cart Toast */}
+      {addedToast && (
+        <div className="fixed top-28 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[95] bg-emerald-950/95 text-emerald-100 border border-emerald-500/50 rounded-2xl p-3.5 shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-in slide-in-from-top-3 duration-300">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="material-symbols-outlined text-emerald-400 text-2xl shrink-0">check_circle</span>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-white truncate">Đã thêm vào giỏ hàng!</p>
+              <p className="text-[11px] text-emerald-300 truncate">{addedToast.name}</p>
+            </div>
+          </div>
+          <Link
+            to="/cart"
+            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold rounded-xl shrink-0 transition"
+          >
+            Xem giỏ
+          </Link>
+        </div>
+      )}
+
       {/* Main Container */}
       <div className="flex max-w-7xl mx-auto px-4 sm:px-container-margin py-4 sm:py-stack-md gap-stack-lg">
         {/* Desktop Sidebar (Categories) */}
