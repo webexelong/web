@@ -13,12 +13,13 @@ export default function StaffLayout() {
   const { logout, user } = useAuthStore();
   const currentStoreName = user?.storeName || user?.brandName || 'Cửa hàng hiện tại';
 
-  // Initialize once on mount
+  // Initialize on mount or when storeId changes
   useEffect(() => {
-    fetchOrders(currentStoreId);
-    initRealtime(currentStoreId);
+    const effectiveStoreId = user?.storeId || currentStoreId || 1;
+    fetchOrders(effectiveStoreId);
+    initRealtime(effectiveStoreId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run once on mount
+  }, [user?.storeId, currentStoreId]);
 
   // Realtime pending/preparing orders count
   const pendingCount = orders.filter(o => o.status === 'pending').length;
