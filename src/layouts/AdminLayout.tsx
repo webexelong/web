@@ -64,6 +64,7 @@ export default function AdminLayout() {
     { path: '/admin', icon: 'dashboard', label: 'Tổng Quan' },
     { path: '/admin/orders', icon: 'receipt_long', label: 'Quản Lý Đơn' },
     { path: '/admin/menu', icon: 'restaurant_menu', label: 'Thực Đơn' },
+    { path: '/admin/vouchers', icon: 'local_offer', label: 'Mã Giảm Giá' },
     { path: '/admin/tables', icon: 'table_restaurant', label: 'Bàn & Mã QR' },
     { path: '/admin/inventory', icon: 'inventory_2', label: 'Kho Nguyên Liệu' },
     { path: '/admin/analytics', icon: 'analytics', label: 'Báo Cáo & AI' },

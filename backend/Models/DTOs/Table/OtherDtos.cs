@@ -81,6 +81,68 @@ namespace WebCafe.Backend.Models.DTOs.Voucher
         public decimal DiscountAmount { get; set; }
         public decimal FinalAmount { get; set; }
     }
+
+    public class VoucherAdminDto
+    {
+        public int VoucherId { get; set; }
+        public int TenantId { get; set; }
+        public int? StoreId { get; set; }
+        public string? StoreName { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string DiscountType { get; set; } = "percent";
+        public decimal DiscountValue { get; set; }
+        public decimal? MaxDiscount { get; set; }
+        public decimal MinOrderAmount { get; set; }
+        public int? MaxUsageTotal { get; set; }
+        public int UsedCount { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class CreateVoucherDto
+    {
+        public int? StoreId { get; set; }
+
+        [Required(ErrorMessage = "Mã voucher là bắt buộc.")]
+        [MaxLength(30, ErrorMessage = "Mã voucher không vượt quá 30 ký tự.")]
+        public string Code { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Tiêu đề voucher là bắt buộc.")]
+        [MaxLength(150, ErrorMessage = "Tiêu đề không vượt quá 150 ký tự.")]
+        public string Title { get; set; } = string.Empty;
+
+        [MaxLength(300, ErrorMessage = "Mô tả không vượt quá 300 ký tự.")]
+        public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Loại giảm giá là bắt buộc.")]
+        public string DiscountType { get; set; } = "percent";
+
+        [Range(1, double.MaxValue, ErrorMessage = "Giá trị giảm phải lớn hơn 0.")]
+        public decimal DiscountValue { get; set; }
+
+        public decimal? MaxDiscount { get; set; }
+
+        [Range(0, double.MaxValue, ErrorMessage = "Đơn hàng tối thiểu không được âm.")]
+        public decimal MinOrderAmount { get; set; } = 0;
+
+        public int? MaxUsageTotal { get; set; }
+
+        [Required(ErrorMessage = "Ngày bắt đầu là bắt buộc.")]
+        public DateTime StartDate { get; set; }
+
+        [Required(ErrorMessage = "Ngày kết thúc là bắt buộc.")]
+        public DateTime EndDate { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    public class UpdateVoucherDto : CreateVoucherDto
+    {
+    }
 }
 
 namespace WebCafe.Backend.Models.DTOs.Payment

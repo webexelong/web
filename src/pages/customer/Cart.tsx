@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { customerApi, paymentApi } from '../../api/apis';
 import { apiClient } from '../../api/apiClient';
+import { voucherApi } from '../../api/apis';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
 
@@ -31,6 +32,14 @@ export default function Cart() {
 
   const [voucherInput, setVoucherInput] = useState('');
   const [voucherError, setVoucherError] = useState('');
+  const [appliedVoucherDetail, setAppliedVoucherDetail] = useState<{
+    code: string;
+    title: string;
+    discountType: 'percent' | 'fixed';
+    discountAmount: number;
+  } | null>(null);
+  const [availableVouchers, setAvailableVouchers] = useState<any[]>([]);
+  const [showVoucherList, setShowVoucherList] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +55,9 @@ export default function Cart() {
 
   const cartCount = cart ? cart.reduce((acc, item) => acc + item.quantity, 0) : 0;
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discountAmount = voucherDiscount ? (subtotal * voucherDiscount / 100) : 0;
+  const discountAmount = appliedVoucherDetail
+    ? appliedVoucherDetail.discountAmount
+    : (voucherDiscount ? Math.round((subtotal * voucherDiscount) / 100) : 0);
   const serviceFee = cart.length > 0 ? 0 : 0;
 
   // Lấy thông tin điểm tích lũy của khách theo đúng quán đang ghé
@@ -81,27 +92,49 @@ export default function Cart() {
   const pointsDiscountAmount = pointsToUse * pointsToMoney;
   const total = Math.max(0, subtotal - discountAmount - pointsDiscountAmount + serviceFee);
 
-  const handleApplyVoucher = async () => {
-    if (!voucherInput.trim()) return;
+  useEffect(() => {
+    const sId = currentStoreId || guestSession?.storeId || 1;
+    const tId = (guestSession as any)?.tenantId || 1;
+    voucherApi.getByStore(sId, tId).then((list: any[]) => setAvailableVouchers(list)).catch(() => {});
+  }, [currentStoreId, guestSession]);
+
+  const handleApplyVoucher = async (codeToApply?: string) => {
+    const targetCode = (codeToApply || voucherInput).trim().toUpperCase();
+    if (!targetCode) return;
     try {
+      setVoucherError('');
       const sId = currentStoreId || guestSession?.storeId || 1;
       const res = await apiClient.post('/vouchers/validate', {
-        code: voucherInput.trim().toUpperCase(),
+        code: targetCode,
         storeId: sId,
         orderAmount: subtotal,
         customerPhone: customerPhone || undefined
       });
       if (res.data?.success && res.data?.data?.isValid) {
         const v = res.data.data;
-        const discountVal = v.discountType === 'percent' ? (v.discountValue || 0) : Math.round((v.discountAmount / subtotal) * 100);
-        setVoucher(v.code, discountVal);
+        setAppliedVoucherDetail({
+          code: v.code,
+          title: v.title,
+          discountType: v.discountType,
+          discountAmount: v.discountAmount
+        });
+        setVoucher(v.code, v.discountType === 'percent' ? Math.round((v.discountAmount / subtotal) * 100) : 0);
         setVoucherError('');
+        setVoucherInput('');
+        setShowVoucherList(false);
       } else {
         setVoucherError(res.data?.data?.message || res.data?.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
       }
-    } catch {
-      setVoucherError('Mã ưu đãi không hợp lệ hoặc đã hết hạn.');
+    } catch (err: any) {
+      setVoucherError(err.response?.data?.message || 'Mã ưu đãi không hợp lệ hoặc chưa đủ điều kiện.');
     }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucherDetail(null);
+    setVoucher('', 0);
+    setVoucherInput('');
+    setVoucherError('');
   };
 
   const handleApplyPoints = (val: number) => {
@@ -302,30 +335,108 @@ export default function Cart() {
 
                 {/* Voucher Box */}
                 <div>
-                  <label className="text-xs font-bold text-on-surface-variant block mb-1">Mã Giảm Giá</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">local_offer</span>
+                      <span>Mã Giảm Giá</span>
+                    </label>
+                    {availableVouchers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowVoucherList(!showVoucherList)}
+                        className="text-[11px] font-bold text-primary dark:text-[#E8B98A] hover:underline flex items-center gap-0.5"
+                      >
+                        <span>{showVoucherList ? 'Ẩn mã' : 'Xem ưu đãi (' + availableVouchers.length + ')'}</span>
+                        <span className="material-symbols-outlined text-xs">
+                          {showVoucherList ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Nhập mã ưu đãi"
-                      className="flex-grow px-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-xs uppercase font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="Nhập mã ưu đãi (VD: BANMOI20)"
+                      className="flex-grow px-3 py-2 bg-surface dark:bg-[#1E1714] border border-outline-variant/40 dark:border-white/10 rounded-xl text-xs uppercase font-mono font-bold text-on-surface dark:text-[#F8F4EE] placeholder:normal-case placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/20"
                       value={voucherInput}
-                      onChange={(e) => setVoucherInput(e.target.value)}
+                      onChange={(e) => setVoucherInput(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
                     />
                     <button
                       type="button"
-                      onClick={handleApplyVoucher}
-                      className="px-4 py-2 bg-secondary text-white rounded-xl text-xs font-bold hover:bg-secondary/90 transition-colors"
+                      onClick={() => handleApplyVoucher()}
+                      className="px-4 py-2 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-xs"
                     >
                       Áp Dụng
                     </button>
                   </div>
-                  {appliedVoucherCode && (
-                    <p className="text-xs text-green-600 font-bold mt-1.5 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">check_circle</span>
-                      Đã áp dụng mã {appliedVoucherCode} (-{voucherDiscount}%)
+
+                  {/* Applied Voucher Card */}
+                  {(appliedVoucherDetail || appliedVoucherCode) && (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl mt-2 animate-in fade-in">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-lg">check_circle</span>
+                        <div>
+                          <p className="text-xs font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                            Mã: {appliedVoucherDetail?.code || appliedVoucherCode}
+                          </p>
+                          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400 font-medium">
+                            {appliedVoucherDetail
+                              ? 'Giảm -' + appliedVoucherDetail.discountAmount.toLocaleString('vi-VN') + 'đ'
+                              : 'Giảm -' + voucherDiscount + '%'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveVoucher}
+                        className="text-[11px] text-red-500 hover:text-red-700 dark:text-red-400 font-bold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+                      >
+                        Gỡ mã
+                      </button>
+                    </div>
+                  )}
+
+                  {voucherError && (
+                    <p className="text-xs text-red-500 font-semibold mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">error</span>
+                      <span>{voucherError}</span>
                     </p>
                   )}
-                  {voucherError && <p className="text-xs text-error font-semibold mt-1">{voucherError}</p>}
+
+                  {/* Available Vouchers Dropdown List */}
+                  {showVoucherList && availableVouchers.length > 0 && (
+                    <div className="mt-2.5 space-y-1.5 p-2 bg-surface-container-low dark:bg-[#1E1714] rounded-xl border border-outline-variant/30 dark:border-white/10 max-h-48 overflow-y-auto animate-in fade-in">
+                      <p className="text-[10px] uppercase font-bold text-on-surface-variant dark:text-[#A4968C] px-1">
+                        Mã ưu đãi đang áp dụng cho quán:
+                      </p>
+                      {availableVouchers.map((v) => (
+                        <div
+                          key={v.voucherId}
+                          onClick={() => handleApplyVoucher(v.code)}
+                          className="flex items-center justify-between p-2 bg-surface dark:bg-[#241C18] hover:border-primary border border-outline-variant/20 dark:border-white/5 rounded-lg cursor-pointer transition group"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-xs text-primary dark:text-[#E8B98A] group-hover:underline">
+                                {v.code}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400 font-bold">
+                                {v.discountType === 'percent' ? '-' + v.discountValue + '%' : '-' + v.discountValue.toLocaleString('vi-VN') + 'đ'}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-on-surface-variant dark:text-[#A4968C] line-clamp-1">
+                              {v.title}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-bold text-primary dark:text-[#E8B98A] opacity-0 group-hover:opacity-100 transition">
+                            Dùng
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Loyalty Points Section */}
