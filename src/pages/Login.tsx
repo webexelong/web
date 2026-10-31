@@ -124,30 +124,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-orange-100 px-4 py-8">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-orange-100">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 py-8 bg-gradient-to-br from-[#2D1B12] via-[#1B110B] to-[#0D0805] selection:bg-amber-500 selection:text-white">
+      {/* Warm Ambient Coffee Glow Orbs */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-amber-500/20 blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-orange-600/20 blur-[110px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-amber-600/10 blur-[120px] pointer-events-none" />
+
+      {/* Login Card */}
+      <div className="relative z-10 max-w-md w-full bg-[#1A1411]/95 border border-amber-600/25 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] p-8 sm:p-10 backdrop-blur-xl">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-black text-2xl shadow-lg mb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-white font-black text-2xl shadow-lg shadow-orange-950/60 mb-3 border border-amber-400/30">
             AI
           </div>
-          <h1 className="text-2xl font-black text-[#5A4030] tracking-tight">AI-SMARTSERVE</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-2xl font-black text-[#F8F4EE] tracking-tight">AI-SMARTSERVE</h1>
+          <p className="text-[#A4968C] text-xs sm:text-sm mt-1 font-medium">
             {isSystemAdminPortal ? 'Cổng Quản Trị Hệ Thống (SaaS Platform)' : 'Đăng nhập vào hệ thống vận hành'}
           </p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-red-500 text-lg flex-shrink-0 mt-0.5">error</span>
-            <p className="text-red-700 text-xs sm:text-sm leading-relaxed">{error}</p>
+          <div className="mb-5 p-3.5 bg-red-950/50 border border-red-500/40 rounded-xl flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-red-400 text-lg flex-shrink-0 mt-0.5">error</span>
+            <p className="text-red-200 text-xs sm:text-sm leading-relaxed">{error}</p>
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-[#E2D4C9] uppercase tracking-wider mb-1.5">
               Tên đăng nhập / Email
             </label>
             <input
@@ -155,13 +161,13 @@ export default function LoginPage() {
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm transition"
+              className="w-full px-4 py-2.5 bg-[#120D0A] border border-amber-900/50 rounded-xl text-amber-50 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition"
               placeholder="superadmin, email chủ quán hoặc tài khoản nhân viên"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-[#E2D4C9] uppercase tracking-wider mb-1.5">
               Mật khẩu
             </label>
             <input
@@ -169,17 +175,17 @@ export default function LoginPage() {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm transition"
+              className="w-full px-4 py-2.5 bg-[#120D0A] border border-amber-900/50 rounded-xl text-amber-50 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition"
               placeholder="••••••••"
             />
           </div>
 
           <div className="flex items-center justify-between text-xs pt-1">
-            <label className="flex items-center text-gray-600 cursor-pointer">
-              <input type="checkbox" className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 mr-2" />
+            <label className="flex items-center text-[#B0A298] cursor-pointer hover:text-white transition">
+              <input type="checkbox" className="rounded border-amber-900/60 bg-[#120D0A] text-amber-500 focus:ring-amber-500 mr-2" />
               <span>Ghi nhớ đăng nhập</span>
             </label>
-            <a href="#" className="text-orange-600 hover:text-orange-700 font-semibold">
+            <a href="#" className="text-amber-400 hover:text-amber-300 font-semibold transition">
               Quên mật khẩu?
             </a>
           </div>
@@ -187,7 +193,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-3 px-4 rounded-xl font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white py-3 px-4 rounded-xl font-bold shadow-lg shadow-orange-950/60 hover:shadow-orange-950/80 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-[#1A1411] transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -203,12 +209,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-
         {/* Separator / Footer Navigation */}
-        <div className="mt-6 pt-4 border-t border-gray-100 text-center text-xs text-gray-600">
+        <div className="mt-6 pt-4 border-t border-white/10 text-center text-xs text-[#A4968C]">
           <p>
             Bạn là chủ doanh nghiệp F&B?{' '}
-            <a href="/signup" className="text-orange-600 hover:text-orange-700 font-bold underline">
+            <a href="/signup" className="text-amber-400 hover:text-amber-300 font-bold underline decoration-amber-400/50">
               Đăng ký mở quán mới
             </a>
           </p>

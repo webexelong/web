@@ -426,8 +426,8 @@ export default function MenuManagement() {
             }}
             className={`px-5 py-2 rounded-full font-label-md whitespace-nowrap transition-colors ${
               activeCategory === null
-                ? 'bg-secondary-container text-on-secondary-container border border-primary/20 font-bold' 
-                : 'bg-surface-container text-on-surface-variant hover:bg-secondary-container/50'
+                ? 'bg-secondary-container text-on-secondary-container dark:bg-amber-600 dark:text-white border border-primary/20 dark:border-amber-500 font-bold shadow-xs' 
+                : 'bg-surface-container text-on-surface-variant dark:bg-[#1E1714] dark:text-[#C5B7AD] dark:border dark:border-white/5 hover:bg-secondary-container/50 dark:hover:bg-[#2A201A]'
             }`}
           >
             Tất Cả ({menuItems.length})
@@ -441,8 +441,8 @@ export default function MenuManagement() {
               }}
               className={`px-5 py-2 rounded-full font-label-md whitespace-nowrap transition-colors ${
                 activeCategory === cat.categoryId
-                  ? 'bg-secondary-container text-on-secondary-container border border-primary/20 font-bold' 
-                  : 'bg-surface-container text-on-surface-variant hover:bg-secondary-container/50'
+                  ? 'bg-secondary-container text-on-secondary-container dark:bg-amber-600 dark:text-white border border-primary/20 dark:border-amber-500 font-bold shadow-xs' 
+                  : 'bg-surface-container text-on-surface-variant dark:bg-[#1E1714] dark:text-[#C5B7AD] dark:border dark:border-white/5 hover:bg-secondary-container/50 dark:hover:bg-[#2A201A]'
               }`}
             >
               {cat.icon && <span className="material-symbols-outlined align-middle mr-1 text-base">{cat.icon}</span>}
@@ -452,22 +452,22 @@ export default function MenuManagement() {
         </div>
 
         {/* Menu Table */}
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_4px_20px_rgba(85,55,34,0.06)] border border-outline-variant/30 overflow-hidden flex flex-col justify-between">
+        <div className="bg-surface-container-lowest dark:bg-[#140F0D] rounded-2xl shadow-[0_4px_20px_rgba(85,55,34,0.06)] border border-outline-variant/30 dark:border-white/10 overflow-hidden flex flex-col justify-between">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left border-collapse">
-              <thead className="bg-surface-container-low">
+              <thead className="bg-surface-container-low dark:bg-[#1C1613] border-b border-outline-variant/20 dark:border-white/10">
                 <tr>
-                  <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs">Món</th>
-                  <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs">Danh Mục</th>
-                  <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs">Giá</th>
-                  <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs">Trạng Thái</th>
-                  <th className="px-6 py-4 font-label-md text-on-surface-variant uppercase tracking-wider text-xs text-right">Thao Tác</th>
+                  <th className="px-6 py-4 font-label-md text-on-surface-variant dark:text-[#C5B7AD] uppercase tracking-wider text-xs font-bold">Món</th>
+                  <th className="px-6 py-4 font-label-md text-on-surface-variant dark:text-[#C5B7AD] uppercase tracking-wider text-xs font-bold">Danh Mục</th>
+                  <th className="px-6 py-4 font-label-md text-on-surface-variant dark:text-[#C5B7AD] uppercase tracking-wider text-xs font-bold">Giá</th>
+                  <th className="px-6 py-4 font-label-md text-on-surface-variant dark:text-[#C5B7AD] uppercase tracking-wider text-xs font-bold">Trạng Thái</th>
+                  <th className="px-6 py-4 font-label-md text-on-surface-variant dark:text-[#C5B7AD] uppercase tracking-wider text-xs text-right font-bold">Thao Tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/20">
+              <tbody className="divide-y divide-outline-variant/20 dark:divide-white/5">
                 {paginatedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant">
+                    <td colSpan={5} className="px-6 py-12 text-center text-on-surface-variant dark:text-[#A4968C]">
                       Chưa có món nào. Hãy thêm món mới!
                     </td>
                   </tr>
@@ -476,26 +476,26 @@ export default function MenuManagement() {
                     const category = categories.find(c => c.categoryId === item.categoryId);
                     
                     return (
-                      <tr key={item.menuItemId} className="hover:bg-surface-container transition-colors group">
+                      <tr key={item.menuItemId} className="hover:bg-surface-container dark:hover:bg-[#1C1613] transition-colors group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <img 
-                              className="w-12 h-12 rounded-xl object-cover" 
+                              className="w-12 h-12 rounded-xl object-cover ring-1 ring-black/5 dark:ring-white/10" 
                               src={resolveDisplayUrl(item.imageUrl) || 'https://via.placeholder.com/100'} 
                               alt={item.name} 
                             />
                             <div>
                               <div className="flex items-center gap-2">
-                                <p className="font-label-md text-on-surface font-bold">{item.name}</p>
-                                {item.isFeatured && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800"><span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>Nổi bật</span>}
+                                <p className="font-label-md text-on-surface dark:text-[#F8F4EE] font-bold">{item.name}</p>
+                                {item.isFeatured && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 border border-amber-300/40 dark:border-amber-700/50"><span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>Nổi bật</span>}
                               </div>
-                              <p className="text-xs text-on-surface-variant line-clamp-1">
+                              <p className="text-xs text-on-surface-variant dark:text-[#A4968C] line-clamp-1">
                                 {item.description || 'Không có mô tả'}
                               </p>
                               {item.sizes && item.sizes.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
+                                <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   {item.sizes.map((s, idx) => (
-                                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-secondary-container/50 text-secondary border border-secondary/20 font-medium">
+                                    <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-stone-100 dark:bg-[#261E1A] text-stone-700 dark:text-[#E2D4C9] border border-stone-200 dark:border-amber-900/30 font-medium">
                                       {s.name}: +{s.extraPrice.toLocaleString('vi-VN')}đ
                                     </span>
                                   ))}
@@ -505,18 +505,18 @@ export default function MenuManagement() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-3 py-1 rounded-full bg-secondary-container/40 text-secondary text-xs font-semibold">
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300/40 dark:bg-[#34241B] dark:text-[#F8D2B0] dark:border-amber-700/50 shadow-xs">
                             {category?.name || 'Chưa phân loại'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 font-label-md text-primary font-bold">
+                        <td className="px-6 py-4 font-label-md text-primary dark:text-[#F3B776] font-bold">
                           {item.basePrice.toLocaleString('vi-VN')}đ
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             item.isAvailable 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-red-100 text-red-700'
+                              ? 'bg-green-100 text-green-700 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border dark:border-emerald-700/50' 
+                              : 'bg-red-100 text-red-700 dark:bg-rose-950/80 dark:text-rose-300 dark:border dark:border-rose-700/50'
                           }`}>
                             {item.isAvailable ? 'Đang Bán' : 'Hết Hàng'}
                           </span>
