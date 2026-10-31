@@ -4,19 +4,23 @@ class NotificationService {
   private isEnabled: boolean = true;
 
   constructor() {
-    // Create audio element with notification sound
-    // Using a simple beep sound data URL (you can replace with your own sound file)
+    try {
+      const saved = localStorage.getItem('webcafe_sound_enabled');
+      if (saved !== null) {
+        this.isEnabled = saved === 'true';
+      }
+    } catch {
+      this.isEnabled = true;
+    }
+
     this.audio = new Audio();
-    // Simple notification beep (base64 encoded short beep)
-    this.audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ==';
+    this.audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ8xkNbx0IJqOgstdMjw3qBJEBdjrOvwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZGQ==';
     this.audio.volume = 0.5;
   }
 
   playNewOrderSound() {
     if (!this.isEnabled || !this.audio) return;
-    
     try {
-      // Reset audio to start
       this.audio.currentTime = 0;
       this.audio.play().catch(err => {
         console.warn('Could not play notification sound:', err);
@@ -28,14 +32,12 @@ class NotificationService {
 
   playStatusChangeSound() {
     if (!this.isEnabled || !this.audio) return;
-    
     try {
-      this.audio.volume = 0.3; // Softer for status changes
+      this.audio.volume = 0.3;
       this.audio.currentTime = 0;
       this.audio.play().catch(err => {
         console.warn('Could not play status sound:', err);
       });
-      // Reset volume
       setTimeout(() => {
         if (this.audio) this.audio.volume = 0.5;
       }, 100);
@@ -46,14 +48,17 @@ class NotificationService {
 
   enable() {
     this.isEnabled = true;
+    try { localStorage.setItem('webcafe_sound_enabled', 'true'); } catch {}
   }
 
   disable() {
     this.isEnabled = false;
+    try { localStorage.setItem('webcafe_sound_enabled', 'false'); } catch {}
   }
 
   toggle() {
     this.isEnabled = !this.isEnabled;
+    try { localStorage.setItem('webcafe_sound_enabled', String(this.isEnabled)); } catch {}
     return this.isEnabled;
   }
 

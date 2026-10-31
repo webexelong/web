@@ -2,6 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
+import SettingsDropdown from '../components/SettingsDropdown';
 
 export default function StaffLayout() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function StaffLayout() {
   return (
     <div className="flex min-h-screen bg-background font-body-md text-on-surface">
       {/* TopAppBar */}
-      <header className="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-3 sm:px-6 h-[104px] bg-surface/95 backdrop-blur-md dark:bg-inverse-surface shadow-xs border-b border-outline-variant/15">
+      <header className="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-3 sm:px-6 h-[104px] bg-surface/95 backdrop-blur-md dark:bg-[#1C1613]/95 shadow-xs border-b border-outline-variant/15 dark:border-white/5 transition-colors">
         <div className="flex items-center gap-2 sm:gap-4">
           <button 
             className="md:hidden p-1.5 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors flex items-center justify-center" 
@@ -60,13 +61,8 @@ export default function StaffLayout() {
             )}
           </button>
           
-          <button 
-            onClick={() => navigate('/staff/dashboard')}
-            className="p-1.5 sm:p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
-            title="Tổng quan ca"
-          >
-            <span className="material-symbols-outlined text-xl">settings</span>
-          </button>
+          {/* Settings Dropdown with Staff Sound Control */}
+          <SettingsDropdown isStaff />
           
           <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full overflow-hidden border border-outline-variant shrink-0">
             <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoIJV4b1TkjJNBv6lp6U10KgMWD0nrpBYjnQ6VckiyLjwh0QDzlQEjQYuEnI_uGgO2j58tuyjYPahvT4FMtUHAYvu6I0Zvp8CF5dOHzShckrD7RYBq9ram42N6UZGIqoAz_rnuci-PWHZGC9LzNFU0giX4JzIFOQH6bmsYlDvvyGN0v_DFWMPs_gS48r522GKqbnibANoRX8YgiBAH5t4KHAaJKgubHTX_YbbAvq_h7Kb7UnXUsaLp" alt="Staff" />
@@ -83,7 +79,7 @@ export default function StaffLayout() {
       )}
 
       {/* SideNavBar (Desktop & Mobile Drawer) */}
-      <aside className={`fixed left-0 top-0 bottom-0 md:top-[104px] w-64 flex flex-col p-4 z-50 md:z-30 bg-surface md:bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant/15 transition-transform duration-300 shadow-2xl md:shadow-none ${
+      <aside className={`fixed left-0 top-0 bottom-0 md:top-[104px] w-64 flex flex-col p-4 z-50 md:z-30 bg-surface md:bg-surface-container-low dark:bg-[#1C1613] border-r border-outline-variant/15 dark:border-white/5 transition-transform duration-300 shadow-2xl md:shadow-none ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         <div className="flex flex-col items-center py-4 mb-2 border-b border-outline-variant/10 md:border-none cursor-pointer" onClick={() => { setIsMobileMenuOpen(false); navigate('/staff/dashboard'); }}>
@@ -101,8 +97,8 @@ export default function StaffLayout() {
             onClick={() => setIsMobileMenuOpen(false)} 
             className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 transition-all text-xs font-bold ${
               location.pathname.endsWith('/orders') 
-              ? 'bg-secondary-container text-on-secondary-container shadow-xs' 
-              : 'text-on-surface-variant hover:bg-surface-variant/40'
+              ? 'bg-secondary-container dark:bg-white/5 dark:border dark:border-amber-600/40 text-on-secondary-container dark:text-white dark:rounded-full shadow-xs' 
+              : 'text-on-surface-variant dark:text-[#A4968C] hover:bg-surface-variant/40 dark:hover:bg-white/5'
             }`}
           >
             <div className="flex items-center gap-3">
@@ -111,21 +107,21 @@ export default function StaffLayout() {
             </div>
             {activeOrdersCount > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                pendingCount > 0 ? 'bg-amber-400 text-primary animate-pulse' : 'bg-primary/20 text-primary'
+                pendingCount > 0 ? 'bg-amber-400 text-stone-950 animate-pulse' : 'bg-primary/20 dark:bg-amber-500/20 text-primary dark:text-amber-300'
               }`}>
                 {activeOrdersCount}
               </span>
             )}
           </Link>
           
-          {/* Item 2: Shift Dashboard & Live Metrics (Replaced broken customer menu redirect) */}
+          {/* Item 2: Shift Dashboard & Live Metrics */}
           <Link 
             to="/staff/dashboard" 
             onClick={() => setIsMobileMenuOpen(false)} 
             className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-all text-xs font-bold ${
               location.pathname.endsWith('/dashboard') 
-              ? 'bg-secondary-container text-on-secondary-container shadow-xs' 
-              : 'text-on-surface-variant hover:bg-surface-variant/40'
+              ? 'bg-secondary-container dark:bg-white/5 dark:border dark:border-amber-600/40 text-on-secondary-container dark:text-white dark:rounded-full shadow-xs' 
+              : 'text-on-surface-variant dark:text-[#A4968C] hover:bg-surface-variant/40 dark:hover:bg-white/5'
             }`}
           >
             <span className="material-symbols-outlined text-lg">dashboard</span>
@@ -138,8 +134,8 @@ export default function StaffLayout() {
             onClick={() => setIsMobileMenuOpen(false)} 
             className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-all text-xs font-bold ${
               location.pathname.endsWith('/new-order') 
-              ? 'bg-secondary-container text-on-secondary-container shadow-xs' 
-              : 'text-on-surface-variant hover:bg-surface-variant/40'
+              ? 'bg-secondary-container dark:bg-white/5 dark:border dark:border-amber-600/40 text-on-secondary-container dark:text-white dark:rounded-full shadow-xs' 
+              : 'text-on-surface-variant dark:text-[#A4968C] hover:bg-surface-variant/40 dark:hover:bg-white/5'
             }`}
           >
             <span className="material-symbols-outlined text-lg">point_of_sale</span>
@@ -148,7 +144,7 @@ export default function StaffLayout() {
 
         </nav>
         
-        <div className="pt-3 border-t border-outline-variant/15 mt-auto">
+        <div className="pt-3 border-t border-outline-variant/15 dark:border-white/5 mt-auto">
           <button 
             onClick={() => { setIsMobileMenuOpen(false); navigate('/staff/new-order'); }} 
             className="w-full mb-2 py-2.5 bg-primary text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all hover:bg-primary-container active:scale-95 shadow-xs"

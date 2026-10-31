@@ -166,7 +166,7 @@ export default function Menu() {
       description: '',
     };
 
-    // Gán size mặc định (thường là size Medium) nếu món có danh sách sizes
+    // Gán size mặc định nếu món có danh sách sizes
     const defaultSize = fullItem.rawDto?.sizes && fullItem.rawDto.sizes.length > 0 
       ? fullItem.rawDto.sizes[0] 
       : undefined;
@@ -185,13 +185,13 @@ export default function Menu() {
       <div className="flex max-w-7xl mx-auto px-4 sm:px-container-margin py-4 sm:py-stack-md gap-stack-lg">
         {/* Desktop Sidebar (Categories) */}
         <aside className="hidden lg:flex flex-col w-64 gap-stack-md shrink-0 sticky top-20 self-start">
-          <div className="bg-surface-container-low dark:bg-surface-dim p-4 rounded-2xl border border-outline-variant/10">
-            <h2 className="font-headline-md text-xs uppercase tracking-wider text-on-surface-variant font-bold mb-3 px-2">Danh Mục Món</h2>
+          <div className="bg-surface-container-low dark:bg-[#1C1613] p-4 rounded-2xl border border-outline-variant/10 dark:border-white/5">
+            <h2 className="font-headline-md text-xs uppercase tracking-wider text-on-surface-variant dark:text-[#A4968C] font-bold mb-3 px-2">Danh Mục Món</h2>
             <div className="flex flex-col gap-1">
               <button 
                 onClick={() => setActiveCategory('Tất Cả')}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                  activeCategory === 'Tất Cả' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-surface-container-highest/60'
+                  activeCategory === 'Tất Cả' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant dark:text-[#A4968C] hover:bg-surface-container-highest/60 dark:hover:bg-white/5'
                 }`}
               >
                 <span className="material-symbols-outlined text-lg">apps</span>
@@ -204,7 +204,7 @@ export default function Menu() {
                     key={catName}
                     onClick={() => setActiveCategory(catName)}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                      activeCategory === catName ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-surface-container-highest/60'
+                      activeCategory === catName ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant dark:text-[#A4968C] hover:bg-surface-container-highest/60 dark:hover:bg-white/5'
                     }`}
                   >
                     <span className="material-symbols-outlined text-lg">{c.icon || 'local_cafe'}</span>
@@ -223,7 +223,7 @@ export default function Menu() {
             <div className="relative flex-1 max-w-md">
               <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
               <input 
-                className="w-full bg-white dark:bg-surface-dim border border-outline-variant/20 rounded-full pl-10 pr-4 py-2 text-xs sm:text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-xs" 
+                className="w-full bg-white dark:bg-[#231C18] border border-outline-variant/20 dark:border-white/10 rounded-full pl-10 pr-4 py-2 text-xs sm:text-sm text-on-surface dark:text-[#F3EDE6] placeholder:text-on-surface-variant/60 dark:placeholder:text-[#7E7067] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-xs" 
                 placeholder="Tìm món đồ uống yêu thích..." 
                 type="text" 
                 value={searchQuery}
@@ -234,7 +234,7 @@ export default function Menu() {
               <button 
                 onClick={() => setActiveCategory('Tất Cả')}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                  activeCategory === 'Tất Cả' ? 'bg-primary text-on-primary shadow-xs' : 'bg-white border border-primary/10 text-on-surface-variant hover:bg-primary/5'
+                  activeCategory === 'Tất Cả' ? 'bg-primary text-on-primary shadow-xs' : 'bg-white dark:bg-[#231C18] border border-primary/10 dark:border-white/10 text-on-surface-variant dark:text-[#A4968C] hover:bg-primary/5 dark:hover:bg-white/5'
                 }`}
               >
                 Tất Cả
@@ -246,7 +246,7 @@ export default function Menu() {
                     key={catName}
                     onClick={() => setActiveCategory(catName)}
                     className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                      activeCategory === catName ? 'bg-primary text-on-primary shadow-xs' : 'bg-white border border-primary/10 text-on-surface-variant hover:bg-primary/5'
+                      activeCategory === catName ? 'bg-primary text-on-primary shadow-xs' : 'bg-white dark:bg-[#231C18] border border-primary/10 dark:border-white/10 text-on-surface-variant dark:text-[#A4968C] hover:bg-primary/5 dark:hover:bg-white/5'
                     }`}
                   >
                     {catName}
@@ -296,7 +296,7 @@ export default function Menu() {
           {/* Dynamic Menu Grid */}
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-stack-lg">
             {paginatedItems.length === 0 ? (
-              <div className="col-span-full py-16 text-center text-on-surface-variant font-medium bg-white rounded-2xl border border-outline-variant/10 p-6">
+              <div className="col-span-full py-16 text-center text-on-surface-variant font-medium bg-white dark:bg-[#211A16] rounded-2xl border border-outline-variant/10 dark:border-white/5 p-6">
                 Không tìm thấy món nào trong danh mục này.
               </div>
             ) : (
@@ -306,7 +306,7 @@ export default function Menu() {
                 return (
                   <div 
                     key={item.id} 
-                    className={`group bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-primary/5 shadow-xs transition-all duration-300 flex flex-row sm:flex-col relative ${
+                    className={`group bg-white dark:bg-[#211A16] rounded-xl sm:rounded-2xl overflow-hidden border border-primary/5 dark:border-white/5 shadow-xs transition-all duration-300 flex flex-row sm:flex-col relative ${
                       isOutOfStock ? 'opacity-70 grayscale-[0.25] hover:shadow-xs' : 'hover:shadow-lg'
                     }`}
                   >
@@ -324,7 +324,7 @@ export default function Menu() {
                       </div>
                     )}
 
-                    <Link to={`/product/${item.id}`} className="relative m-2 h-24 w-24 shrink-0 overflow-hidden rounded-xl block bg-surface-container-low sm:m-0 sm:h-64 sm:w-auto sm:rounded-none">
+                    <Link to={`/product/${item.id}`} className="relative m-2 h-24 w-24 shrink-0 overflow-hidden rounded-xl block bg-surface-container-low dark:bg-[#181310] sm:m-0 sm:h-64 sm:w-auto sm:rounded-none">
                       <img
                         src={getOptimizedImageUrl(item.image, 320)}
                         srcSet={getResponsiveImageSources(item.image)}
@@ -341,9 +341,9 @@ export default function Menu() {
                           {item.price.toLocaleString('vi-VN')}đ
                       </div>
                       {!isOutOfStock && (
-                        <div className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-white/95 backdrop-blur-md shadow-xs rounded-md flex items-center gap-0.5 sm:gap-1">
+                        <div className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-1.5 sm:px-2 py-0.5 bg-white/95 dark:bg-[#181310]/85 dark:border dark:border-white/10 backdrop-blur-md shadow-xs rounded-md flex items-center gap-0.5 sm:gap-1">
                           <span className="material-symbols-outlined text-amber-500 text-[10px] sm:text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                          <span className="text-[9px] sm:text-xs font-bold text-on-surface">{item.rating || 4.8}</span>
+                          <span className="text-[9px] sm:text-xs font-bold text-on-surface dark:text-[#F3EDE6]">{item.rating || 4.8}</span>
                         </div>
                       )}
                     </Link>
@@ -356,26 +356,26 @@ export default function Menu() {
                             {item.description || 'Hương vị hảo hạng được pha chế tươi ngon mỗi ngày.'}
                         </p>
                       </Link>
-                      <div className="flex items-center justify-between gap-2 mt-auto pt-1.5 sm:pt-2 border-t border-surface-variant/40">
+                      <div className="flex items-center justify-between gap-2 mt-auto pt-1.5 sm:pt-2 border-t border-surface-variant/40 dark:border-white/5">
                         {isOutOfStock ? (
                           <span className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-red-50 text-red-600 rounded-full text-[10px] sm:text-xs font-bold border border-red-200">
                             Tạm Hết Món
                           </span>
                         ) : (
-                          <Link to={`/product/${item.id}`} className="px-2.5 sm:px-3.5 py-1 sm:py-1.5 border-[1.5px] border-primary text-primary rounded-full text-[10px] sm:text-xs font-bold hover:bg-primary/5 transition-colors">
+                          <Link to={`/product/${item.id}`} className="px-2.5 sm:px-3.5 py-1 sm:py-1.5 border-[1.5px] border-primary dark:border-amber-600/50 text-primary dark:text-amber-200 rounded-full text-[10px] sm:text-xs font-bold hover:bg-primary/5 dark:hover:bg-amber-500/10 transition-colors">
                             Tùy Chỉnh
                           </Link>
                         )}
 
                         <button 
                           disabled={isOutOfStock}
+                          onClick={() => handleAddToCart(item.id.toString(), item.name, item.price, item.image)}
+                          aria-label={`Thêm ${item.name} vào giỏ hàng`}
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all ${
                             isOutOfStock 
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                            : 'bg-primary text-on-primary hover:bg-primary-container active:scale-90 shadow-sm'
+                            ? 'bg-gray-200 dark:bg-stone-800 text-gray-400 cursor-not-allowed' 
+                            : 'bg-primary dark:bg-[#8C4F27] text-on-primary hover:bg-primary-container dark:hover:bg-[#9E5A2D] active:scale-90 shadow-sm'
                           }`}
-                          onClick={() => handleAddToCart(item.id, item.name, item.price, item.image)}
-                          title={isOutOfStock ? 'Món này tạm hết tại chi nhánh' : 'Thêm nhanh vào giỏ'}
                         >
                           <span className="material-symbols-outlined text-base sm:text-xl">
                             {isOutOfStock ? 'block' : 'add'}
@@ -390,7 +390,7 @@ export default function Menu() {
           </section>
 
           {/* Pagination Controls for Customer Menu */}
-          <div className="bg-white rounded-2xl p-2 border border-outline-variant/15 shadow-2xs mt-2">
+          <div className="bg-white dark:bg-[#211A16] rounded-2xl p-2 border border-outline-variant/15 dark:border-white/5 shadow-2xs mt-2">
             <Pagination 
               currentPage={currentPage} 
               totalPages={totalPages} 
@@ -406,7 +406,7 @@ export default function Menu() {
 
           {/* Active Order Status Card */}
           {activeOrder && (
-            <section className="mt-4 p-4 sm:p-stack-md bg-secondary-container/30 border border-primary/20 rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in">
+            <section className="mt-4 p-4 sm:p-stack-md bg-secondary-container/30 dark:bg-amber-500/10 border border-primary/20 dark:border-amber-500/30 rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-10 sm:w-12 h-10 sm:h-12 bg-primary rounded-full flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white text-lg sm:text-xl animate-pulse">coffee</span>
@@ -428,8 +428,6 @@ export default function Menu() {
 
         </main>
       </div>
-
-
 
       {/* Floating AI Sommelier Chat Widget */}
       <DeferredAiSommelierChat />

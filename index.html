@@ -57,8 +57,21 @@
         setTimeout(loadGTM, 4000);
       }
     </script>
+
+    <!-- Immediate theme hydration to prevent flash of light theme -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('ai_smartserve_theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (saved === 'dark' || ((!saved || saved === 'system') && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body style="background-color: #F6F1E7; margin: 0; padding: 0;">
+  <body style="margin: 0; padding: 0;">
     <div id="root">
       <!-- Instant App Shell Skeleton for sub-second FCP -->
       <div style="min-height: 100vh; background-color: #F6F1E7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
