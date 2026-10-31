@@ -3,6 +3,7 @@ import { apiClient } from '../../api/apiClient';
 import OrderCard from '../../components/staff/OrderCard';
 import StatusFilter from '../../components/staff/StatusFilter';
 import { notificationService } from '../../services/notificationService';
+import { signalRService } from '../../api/signalr';
 import { useStore } from '../../store/useStore';
 import type { OrderStatus } from '../../store/useStore';
 import { useAuthStore } from '../../store/authStore';
@@ -35,7 +36,9 @@ type LocalOrderStatus = 'all' | 'pending' | 'preparing' | 'ready' | 'paid';
 
 export default function StaffOrderDashboard() {
   const { orders: storeOrders } = useStore();
-  const storeId = useAuthStore(state => state.user?.storeId);
+  const authStoreId = useAuthStore(state => state.user?.storeId);
+  const currentStoreId = useStore(state => state.currentStoreId);
+  const storeId = authStoreId || currentStoreId || 1;
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [activeFilter, setActiveFilter] = useState<LocalOrderStatus>('all');
   const [loading, setLoading] = useState(true);
@@ -135,17 +138,46 @@ export default function StaffOrderDashboard() {
   useEffect(() => {
     fetchOrders();
 
-    // Refresh every 60 seconds as backup
-    const interval = setInterval(fetchOrders, 60000);
+    // Connect SignalR & listen to live new order events
+    if (storeId) {
+      signalRService.startConnection(storeId);
 
-    // Request notification permission
+      const handleNewOrder = (orderDto: any) => {
+        console.log('🔔 [SignalR] Có đơn hàng mới tại StaffOrderDashboard:', orderDto);
+        if (soundEnabled) {
+          notificationService.playNewOrderSound();
+        }
+        fetchOrders();
+      };
+
+      const handleStatusChanged = (orderId: number, status: string, orderCode: string) => {
+        console.log('🔔 [SignalR] Trạng thái đơn thay đổi:', orderId, status, orderCode);
+        if (soundEnabled) {
+          notificationService.playStatusChangeSound();
+        }
+        fetchOrders();
+      };
+
+      signalRService.onNewOrder(handleNewOrder);
+      signalRService.onOrderStatusChanged(handleStatusChanged);
+
+      return () => {
+        signalRService.offNewOrder(handleNewOrder);
+        signalRService.offOrderStatusChanged(handleStatusChanged);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, soundEnabled]);
+
+  // Polling dự phòng mỗi 15 giây (thay vì 60s) để đảm bảo không bị miss đơn
+  useEffect(() => {
+    const interval = setInterval(fetchOrders, 15000);
+
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId]);
 

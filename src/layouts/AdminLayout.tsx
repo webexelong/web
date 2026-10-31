@@ -11,7 +11,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuthStore();
-  const { setStoreId } = useStore();
+  const { setStoreId, initRealtime } = useStore();
   const [stores, setStores] = useState<Array<{ storeId: number; name: string }>>([]);
   const [subscription, setSubscription] = useState<{ plan: string; status: string; daysRemaining?: number | null } | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<number>(user?.storeId ?? 0);
@@ -60,6 +60,11 @@ export default function AdminLayout() {
     setStoreId(storeId);
     window.location.reload();
   };
+
+  useEffect(() => {
+    const activeStore = selectedStoreId || user?.storeId || 1;
+    initRealtime(activeStore);
+  }, [selectedStoreId, user?.storeId, initRealtime]);
 
   const navItems = [
     { path: '/admin', icon: 'dashboard', label: 'Tổng Quan' },
