@@ -48,17 +48,17 @@ class NotificationService {
 
   enable() {
     this.isEnabled = true;
-    try { localStorage.setItem('webcafe_sound_enabled', 'true'); } catch {}
+    try { localStorage.setItem('webcafe_sound_enabled', 'true'); } catch { }
   }
 
   disable() {
     this.isEnabled = false;
-    try { localStorage.setItem('webcafe_sound_enabled', 'false'); } catch {}
+    try { localStorage.setItem('webcafe_sound_enabled', 'false'); } catch { }
   }
 
   toggle() {
     this.isEnabled = !this.isEnabled;
-    try { localStorage.setItem('webcafe_sound_enabled', String(this.isEnabled)); } catch {}
+    try { localStorage.setItem('webcafe_sound_enabled', String(this.isEnabled)); } catch { }
     return this.isEnabled;
   }
 

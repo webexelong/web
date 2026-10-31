@@ -34,18 +34,18 @@ export default function CustomerLayout() {
           {/* Left: Logo + Brand */}
           <Link 
             to="/menu" 
-            className="flex items-center gap-2 sm:gap-3 text-primary dark:text-[#F3EDE6] hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 sm:gap-3 text-primary dark:text-[#F3EDE6] hover:opacity-90 transition-opacity shrink-0 min-w-0"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-primary-container dark:from-[#8C4F27] dark:to-[#5E3216] rounded-xl flex items-center justify-center shadow-md">
-              <Coffee size={24} className="text-white" />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-primary-container dark:from-[#8C4F27] dark:to-[#5E3216] rounded-xl flex items-center justify-center shadow-md shrink-0">
+              <Coffee size={20} className="text-white sm:w-6 sm:h-6" />
             </div>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight whitespace-nowrap text-primary dark:text-[#F3EDE6]">
+            <h1 className="text-sm sm:text-xl md:text-2xl font-black tracking-tight whitespace-nowrap text-primary dark:text-[#F3EDE6] truncate max-w-[120px] xs:max-w-none">
               AI-SMARTSERVE
             </h1>
           </Link>
 
           {/* Right: Table Badge + Ask AI + Login/User + Settings + Cart */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
             {/* Ask AI Sommelier Button (Desktop & Tablet only - Mobile uses bottom nav) */}
             <Link
               to="/ai-suggest"
@@ -57,9 +57,9 @@ export default function CustomerLayout() {
 
             {/* Table Badge */}
             {(guestSession?.tableNumber || guestSession?.tableId) && (
-              <div className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-amber-500/10 dark:bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30 dark:border-amber-500/30 rounded-full shadow-xs">
+              <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-amber-500/10 dark:bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30 dark:border-amber-500/30 rounded-full shadow-xs shrink-0">
                 <span className="material-symbols-outlined text-xs sm:text-sm text-amber-700 dark:text-amber-400">table_restaurant</span>
-                <span className="text-[11px] sm:text-xs font-bold text-amber-900 dark:text-amber-200 whitespace-nowrap">
+                <span className="text-[10px] sm:text-xs font-bold text-amber-900 dark:text-amber-200 whitespace-nowrap">
                   {guestSession.tableNumber?.toLowerCase().includes('bàn')
                     ? guestSession.tableNumber
                     : `Bàn ${guestSession.tableNumber || guestSession.tableId}`}
@@ -71,17 +71,17 @@ export default function CustomerLayout() {
             {!isAuthenticated ? (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-full shadow-xs transition-all"
+                className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-full shadow-xs transition-all shrink-0"
                 aria-label="Đăng nhập tài khoản"
               >
                 <span className="material-symbols-outlined text-sm sm:text-base">login</span>
-                <span>Đăng Nhập</span>
+                <span className="hidden sm:inline">Đăng Nhập</span>
               </button>
             ) : (
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   onClick={handleUserIconClick}
-                  className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-full hover:bg-surface-container-high dark:hover:bg-white/10 transition-all text-primary dark:text-[#F3EDE6] border border-outline-variant/30 dark:border-white/10"
+                  className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 rounded-full hover:bg-surface-container-high dark:hover:bg-white/10 transition-all text-primary dark:text-[#F3EDE6] border border-outline-variant/30 dark:border-white/10"
                   aria-label="Menu người dùng"
                 >
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs">
@@ -99,17 +99,19 @@ export default function CustomerLayout() {
             )}
 
             {/* Settings Dropdown (Theme Selector) */}
-            <SettingsDropdown />
+            <div className="shrink-0">
+              <SettingsDropdown />
+            </div>
 
-            {/* Cart Button */}
+            {/* Cart Button (Always visible with high priority) */}
             <Link 
               to="/cart" 
-              className="relative p-2 sm:p-2.5 rounded-full hover:bg-surface-container-high dark:hover:bg-white/10 transition-all text-primary dark:text-[#F3EDE6] flex items-center justify-center"
+              className="relative p-2 sm:p-2.5 rounded-full hover:bg-surface-container-high dark:hover:bg-white/10 transition-all text-primary dark:text-[#F3EDE6] flex items-center justify-center shrink-0 bg-primary/5 dark:bg-white/5"
               aria-label={`Giỏ hàng, ${cartCount} món`}
             >
               <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-primary dark:text-[#F3EDE6]" />
               {cartCount > 0 && (
-                <span aria-live="polite" className="absolute -top-1 -right-1 bg-error text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 text-[10px] sm:text-xs font-bold flex items-center justify-center shadow-md">
+                <span aria-live="polite" className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full min-w-5 h-5 px-1 text-[10px] sm:text-xs font-bold flex items-center justify-center shadow-md animate-pulse">
                   {cartCount}
                 </span>
               )}

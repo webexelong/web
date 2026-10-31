@@ -553,13 +553,15 @@ namespace WebCafe.Backend.Services.Implementation
                 StoreId = store.StoreId,
                 OrderCode = orderCode,
                 TableId = table?.TableId,
-                CustomerId = customer?.CustomerId,
+                CustomerId = isPosStaffOrder && string.IsNullOrWhiteSpace(dto.CustomerPhone) ? null : customer?.CustomerId,
                 
                 // Guest Order Support
-                GuestId = dto.GuestId,
+                GuestId = isPosStaffOrder ? null : dto.GuestId,
                 PaymentAccessToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant(),
-                GuestName = dto.GuestName ?? dto.CustomerName,
-                GuestPhone = dto.GuestPhone ?? dto.CustomerPhone,
+                GuestName = isPosStaffOrder 
+                    ? (!string.IsNullOrWhiteSpace(dto.CustomerName) ? dto.CustomerName : "Khách tại quầy") 
+                    : (dto.GuestName ?? dto.CustomerName ?? "Khách"),
+                GuestPhone = isPosStaffOrder ? null : (dto.GuestPhone ?? dto.CustomerPhone),
                 
                 Status = initialStatus,
                 SubTotal = subTotal,
