@@ -649,17 +649,18 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     try {
+      const isPosStaff = source === 'pos_staff';
       const payload = {
         storeId: effectiveStoreId,
         tableId: finalTableNumId,
-        tableToken: guestSession?.tableToken || undefined,
-        customerPhone: customerPhone || undefined,
-        customerName: customerName || undefined,
+        tableToken: isPosStaff ? undefined : (guestSession?.tableToken || undefined),
+        customerPhone: isPosStaff ? (customerPhone || undefined) : (customerPhone || guestSession?.guestPhone || undefined),
+        customerName: isPosStaff ? (customerName || 'Khách tại quầy') : (customerName || guestSession?.guestName || undefined),
         
-        // Guest Session Support
-        guestId: guestSession?.guestId || undefined,
-        guestName: guestSession?.guestName || customerName || undefined,
-        guestPhone: guestSession?.guestPhone || customerPhone || undefined,
+        // Guest Session Support: Chỉ dùng cho khách (qr_table), TUYỆT ĐỐI không áp dụng cho POS Staff
+        guestId: isPosStaff ? undefined : (guestSession?.guestId || undefined),
+        guestName: isPosStaff ? (customerName || 'Khách tại quầy') : (guestSession?.guestName || customerName || undefined),
+        guestPhone: isPosStaff ? undefined : (guestSession?.guestPhone || customerPhone || undefined),
         source: source,
         paymentMethod: paymentMethod || undefined,
         

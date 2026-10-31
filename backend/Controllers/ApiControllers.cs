@@ -389,6 +389,18 @@ namespace WebCafe.Backend.Controllers
                 var staffRoles = new[] { AppRoles.SystemAdmin, AppRoles.TenantOwner, AppRoles.Staff };
                 if (!_currentUser.IsAuthenticated || !staffRoles.Contains(_currentUser.Role, StringComparer.OrdinalIgnoreCase)) return Unauthorized();
                 await _tenantAccess.EnsureStoreAccessAsync(dto.StoreId);
+
+                // Đơn POS tại quầy: Nếu không có SĐT khách hàng tích điểm, đảm bảo không nhận rác từ guest session
+                if (string.IsNullOrWhiteSpace(dto.CustomerPhone))
+                {
+                    dto.GuestPhone = null;
+                    dto.GuestId = null;
+                    if (string.IsNullOrWhiteSpace(dto.CustomerName) || dto.CustomerName == "Khách")
+                    {
+                        dto.CustomerName = "Khách tại quầy";
+                        dto.GuestName = "Khách tại quầy";
+                    }
+                }
             }
             else if (!source.Equals("qr_table", StringComparison.OrdinalIgnoreCase))
             {
@@ -396,10 +408,7 @@ namespace WebCafe.Backend.Controllers
             }
             if (dto.PointsToUse > 0 && !_currentUser.CustomerId.HasValue)
                 return Unauthorized(ApiResponse<OrderDto>.Fail("Đăng nhập khách hàng để sử dụng điểm."));
-            if (source.Equals("qr_table", StringComparison.OrdinalIgnoreCase))
-            {
-                dto.PaymentMethod = null;
-            }
+
             var order = await _orderService.CreateOrderAsync(dto, _currentUser.CustomerId);
             return Ok(ApiResponse<OrderDto>.Ok(order, "Đặt món thành công!"));
         }

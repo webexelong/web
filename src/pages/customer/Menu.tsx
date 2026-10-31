@@ -70,8 +70,11 @@ export default function Menu() {
     setStoreId, 
     setTable, 
     addToCart, 
-    activeOrder
+    activeOrder,
+    cart
   } = useStore();
+  const cartCount = (cart || []).reduce((acc, item) => acc + item.quantity, 0);
+  const cartTotal = (cart || []).reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const [activeCategory, setActiveCategory] = useState<string>('Cà Phê Pha Máy');
   const [searchQuery, setSearchQuery] = useState('');
@@ -479,6 +482,33 @@ export default function Menu() {
 
         </main>
       </div>
+
+      {/* Floating Bottom Cart Bar for Mobile when cart has items */}
+      {cartCount > 0 && (
+        <div className="md:hidden fixed bottom-16 left-3 right-3 z-40 animate-in slide-in-from-bottom-3 duration-300">
+          <Link
+            to="/cart"
+            className="w-full bg-stone-900/95 dark:bg-[#18120E]/95 text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between border border-amber-500/40 backdrop-blur-md active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-600 flex items-center justify-center text-white shadow-md shrink-0">
+                <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full min-w-4 h-4 px-1 text-[9px] font-black flex items-center justify-center shadow-xs">
+                  {cartCount}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-white truncate">{cartCount} món trong giỏ hàng</p>
+                <p className="text-[11px] font-bold text-amber-300">{cartTotal.toLocaleString('vi-VN')}đ</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white px-3.5 py-2 rounded-xl shadow-xs shrink-0">
+              <span>Xem giỏ</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* Floating AI Sommelier Chat Widget */}
       <DeferredAiSommelierChat />
