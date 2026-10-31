@@ -18,7 +18,11 @@ import type {
   CreateStaffRequest,
   UpdateStaffRequest,
   CheckVoucherRequest, 
-  VoucherValidationResult, 
+  VoucherValidationResult,
+  VoucherAdminDto,
+  CreateVoucherDto,
+  UpdateVoucherDto,
+  VoucherDto, 
   DashboardStatsDto,
   ShiftOperationsDto,
   BusinessAnalyticsReportDto,
@@ -76,6 +80,20 @@ export const menuApi = {
       params: { categoryId }
     });
     return res.data.data;
+  },
+  uploadImage: async (file: File | Blob, subType: 'menu' | 'avatar' = 'menu'): Promise<string> => {
+    const formData = new FormData();
+    const fileName = file instanceof File ? file.name : 'cropped-image.webp';
+    formData.append('file', file, fileName);
+    formData.append('subType', subType);
+
+    const res = await apiClient.post<ApiResponse<{ imageUrl: string }>>(`/Upload/image?subType=${subType}`, formData, {
+      headers: {
+        'Content-Type': undefined,
+      },
+    });
+    const data = res.data?.data as any;
+    return data?.imageUrl || data?.ImageUrl || (res.data as any)?.imageUrl || '';
   },
   getMenuItemById: async (id: number) => {
     const res = await apiClient.get<ApiResponse<MenuItemDto>>(`/Menu/items/${id}`);
@@ -273,8 +291,37 @@ export const staffApi = {
 // Voucher API
 export const voucherApi = {
   checkVoucher: async (data: CheckVoucherRequest) => {
-    const res = await apiClient.post<ApiResponse<VoucherValidationResult>>('/Vouchers/check', data);
+    const res = await apiClient.post<ApiResponse<VoucherValidationResult>>('/vouchers/validate', data);
     return res.data.data;
+  },
+  getAll: async () => {
+    const res = await apiClient.get<ApiResponse<VoucherAdminDto[]>>('/vouchers');
+    return res.data.data || [];
+  },
+  create: async (dto: CreateVoucherDto) => {
+    const res = await apiClient.post<ApiResponse<VoucherAdminDto>>('/vouchers', dto);
+    return res.data.data;
+  },
+  update: async (id: number, dto: UpdateVoucherDto) => {
+    const res = await apiClient.put<ApiResponse<VoucherAdminDto>>('/vouchers/' + id, dto);
+    return res.data.data;
+  },
+  delete: async (id: number) => {
+    await apiClient.delete('/vouchers/' + id);
+  },
+  toggle: async (id: number) => {
+    const res = await apiClient.patch<ApiResponse<{ isActive: boolean }>>('/vouchers/' + id + '/toggle');
+    return res.data.data;
+  },
+  validate: async (request: CheckVoucherRequest) => {
+    const res = await apiClient.post<ApiResponse<VoucherValidationResult>>('/vouchers/validate', request);
+    return res.data.data;
+  },
+  getByStore: async (storeId: number, tenantId: number) => {
+    const res = await apiClient.get<ApiResponse<VoucherDto[]>>('/vouchers/store/' + storeId, {
+      params: { tenantId }
+    });
+    return res.data.data || [];
   }
 };
 

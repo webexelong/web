@@ -76,6 +76,11 @@ namespace WebCafe.Backend.Services.Abstraction
     {
         Task<VoucherValidationResult> ValidateVoucherAsync(CheckVoucherRequest request);
         Task<List<VoucherDto>> GetActiveVouchersAsync(int tenantId, int? storeId);
+        Task<List<VoucherAdminDto>> GetVouchersByTenantAsync(int tenantId);
+        Task<VoucherAdminDto> CreateVoucherAsync(int tenantId, CreateVoucherDto dto);
+        Task<VoucherAdminDto> UpdateVoucherAsync(int tenantId, int voucherId, UpdateVoucherDto dto);
+        Task<bool> DeleteVoucherAsync(int tenantId, int voucherId);
+        Task<bool> ToggleVoucherAsync(int tenantId, int voucherId);
     }
 
     public class VoucherDto

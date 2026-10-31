@@ -714,13 +714,22 @@ namespace WebCafe.Backend.Controllers
     public class VouchersController : ControllerBase
     {
         private readonly IVoucherService _voucherService;
+        private readonly ICurrentUserService _currentUser;
 
-        public VouchersController(IVoucherService voucherService)
+        public VouchersController(IVoucherService voucherService, ICurrentUserService currentUser)
         {
             _voucherService = voucherService;
+            _currentUser = currentUser;
+        }
+
+        private int GetTenantIdFromToken()
+        {
+            return _currentUser.TenantId
+                ?? throw new AppException("Không tìm thấy thông tin Tenant. Vui lòng đăng nhập lại.");
         }
 
         [HttpPost("check")]
+        [HttpPost("validate")]
         public async Task<ActionResult<ApiResponse<VoucherValidationResult>>> CheckVoucher([FromBody] CheckVoucherRequest request)
         {
             var result = await _voucherService.ValidateVoucherAsync(request);
@@ -736,6 +745,51 @@ namespace WebCafe.Backend.Controllers
         {
             var vouchers = await _voucherService.GetActiveVouchersAsync(tenantId, storeId);
             return Ok(ApiResponse<List<VoucherDto>>.Ok(vouchers));
+        }
+
+        [HttpGet]
+        [Authorize(Policy = "ManagerAccess")]
+        public async Task<ActionResult<ApiResponse<List<VoucherAdminDto>>>> GetAllVouchers()
+        {
+            var tenantId = GetTenantIdFromToken();
+            var list = await _voucherService.GetVouchersByTenantAsync(tenantId);
+            return Ok(ApiResponse<List<VoucherAdminDto>>.Ok(list));
+        }
+
+        [HttpPost]
+        [Authorize(Policy = "ManagerAccess")]
+        public async Task<ActionResult<ApiResponse<VoucherAdminDto>>> CreateVoucher([FromBody] CreateVoucherDto dto)
+        {
+            var tenantId = GetTenantIdFromToken();
+            var voucher = await _voucherService.CreateVoucherAsync(tenantId, dto);
+            return Ok(ApiResponse<VoucherAdminDto>.Ok(voucher, "Tạo mã giảm giá thành công."));
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Policy = "ManagerAccess")]
+        public async Task<ActionResult<ApiResponse<VoucherAdminDto>>> UpdateVoucher(int id, [FromBody] UpdateVoucherDto dto)
+        {
+            var tenantId = GetTenantIdFromToken();
+            var voucher = await _voucherService.UpdateVoucherAsync(tenantId, id, dto);
+            return Ok(ApiResponse<VoucherAdminDto>.Ok(voucher, "Cập nhật mã giảm giá thành công."));
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Policy = "ManagerAccess")]
+        public async Task<ActionResult<ApiResponse<object>>> DeleteVoucher(int id)
+        {
+            var tenantId = GetTenantIdFromToken();
+            await _voucherService.DeleteVoucherAsync(tenantId, id);
+            return Ok(ApiResponse<object>.Ok(new { }, "Xóa mã giảm giá thành công."));
+        }
+
+        [HttpPatch("{id}/toggle")]
+        [Authorize(Policy = "ManagerAccess")]
+        public async Task<ActionResult<ApiResponse<object>>> ToggleVoucher(int id)
+        {
+            var tenantId = GetTenantIdFromToken();
+            var status = await _voucherService.ToggleVoucherAsync(tenantId, id);
+            return Ok(ApiResponse<object>.Ok(new { isActive = status }, status ? "Đã kích hoạt mã giảm giá." : "Đã tạm dừng mã giảm giá."));
         }
     }
 

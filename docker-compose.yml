@@ -65,6 +65,8 @@ services:
       Email__From: "${EMAIL_FROM:-webaismartserve@gmail.com}"
       Email__EnableSsl: "${EMAIL_ENABLE_SSL:-true}"
       Email__ExposeVerificationUrl: "false"
+    volumes:
+      - uploads_data:/app/wwwroot/uploads
     networks:
       - webcafe_network
 
@@ -94,4 +96,6 @@ networks:
 
 volumes:
   mssql_data:
+    driver: local
+  uploads_data:
     driver: local

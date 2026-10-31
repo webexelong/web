@@ -6,11 +6,18 @@ class SignalRService {
   private connection: signalR.HubConnection | null = null;
 
   public async startConnection(storeId?: number, tableId?: number) {
-    // If already connected or connecting, skip
+    // If already connected or connecting, check store group then skip
     if (this.connection) {
       const state = this.connection.state;
-      if (state === signalR.HubConnectionState.Connected || state === signalR.HubConnectionState.Connecting) {
-        console.log(`⏭️ SignalR already ${state}, skipping...`);
+      if (state === signalR.HubConnectionState.Connected) {
+        if (storeId) {
+          try {
+            await this.connection.invoke('JoinStoreGroup', storeId);
+          } catch {}
+        }
+        return;
+      }
+      if (state === signalR.HubConnectionState.Connecting) {
         return;
       }
     }

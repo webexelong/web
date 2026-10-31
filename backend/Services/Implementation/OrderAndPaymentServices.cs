@@ -112,6 +112,190 @@ namespace WebCafe.Backend.Services.Implementation
                 })
                 .ToListAsync();
         }
+
+        public async Task<List<VoucherAdminDto>> GetVouchersByTenantAsync(int tenantId)
+        {
+            return await _db.Vouchers
+                .Include(v => v.Store)
+                .Where(v => v.TenantId == tenantId)
+                .OrderByDescending(v => v.CreatedAt)
+                .Select(v => new VoucherAdminDto
+                {
+                    VoucherId = v.VoucherId,
+                    TenantId = v.TenantId,
+                    StoreId = v.StoreId,
+                    StoreName = v.Store != null ? v.Store.Name : "Tất cả chi nhánh",
+                    Code = v.Code,
+                    Title = v.Title,
+                    Description = v.Description,
+                    DiscountType = v.DiscountType,
+                    DiscountValue = v.DiscountValue,
+                    MaxDiscount = v.MaxDiscount,
+                    MinOrderAmount = v.MinOrderAmount,
+                    MaxUsageTotal = v.MaxUsageTotal,
+                    UsedCount = v.UsedCount,
+                    StartDate = v.StartDate,
+                    EndDate = v.EndDate,
+                    IsActive = v.IsActive,
+                    CreatedAt = v.CreatedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<VoucherAdminDto> CreateVoucherAsync(int tenantId, CreateVoucherDto dto)
+        {
+            var code = dto.Code.Trim().ToUpper();
+            var exists = await _db.Vouchers.AnyAsync(v => v.TenantId == tenantId && v.Code == code);
+            if (exists)
+            {
+                throw new AppException($"Mã voucher '{code}' đã tồn tại trong quán của bạn.");
+            }
+
+            if (dto.StartDate >= dto.EndDate)
+            {
+                throw new AppException("Ngày kết thúc phải sau ngày bắt đầu.");
+            }
+
+            var voucher = new Voucher
+            {
+                TenantId = tenantId,
+                StoreId = dto.StoreId,
+                Code = code,
+                Title = dto.Title.Trim(),
+                Description = dto.Description?.Trim(),
+                DiscountType = dto.DiscountType.ToLower() == "fixed" ? "fixed" : "percent",
+                DiscountValue = dto.DiscountValue,
+                MaxDiscount = dto.DiscountType.ToLower() == "percent" ? dto.MaxDiscount : null,
+                MinOrderAmount = dto.MinOrderAmount,
+                MaxUsageTotal = dto.MaxUsageTotal,
+                UsedCount = 0,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                IsActive = dto.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.Vouchers.Add(voucher);
+            await _db.SaveChangesAsync();
+
+            var storeName = "Tất cả chi nhánh";
+            if (voucher.StoreId.HasValue)
+            {
+                var store = await _db.Stores.FindAsync(voucher.StoreId.Value);
+                if (store != null) storeName = store.Name;
+            }
+
+            return new VoucherAdminDto
+            {
+                VoucherId = voucher.VoucherId,
+                TenantId = voucher.TenantId,
+                StoreId = voucher.StoreId,
+                StoreName = storeName,
+                Code = voucher.Code,
+                Title = voucher.Title,
+                Description = voucher.Description,
+                DiscountType = voucher.DiscountType,
+                DiscountValue = voucher.DiscountValue,
+                MaxDiscount = voucher.MaxDiscount,
+                MinOrderAmount = voucher.MinOrderAmount,
+                MaxUsageTotal = voucher.MaxUsageTotal,
+                UsedCount = voucher.UsedCount,
+                StartDate = voucher.StartDate,
+                EndDate = voucher.EndDate,
+                IsActive = voucher.IsActive,
+                CreatedAt = voucher.CreatedAt
+            };
+        }
+
+        public async Task<VoucherAdminDto> UpdateVoucherAsync(int tenantId, int voucherId, UpdateVoucherDto dto)
+        {
+            var voucher = await _db.Vouchers.FirstOrDefaultAsync(v => v.TenantId == tenantId && v.VoucherId == voucherId);
+            if (voucher == null)
+            {
+                throw new NotFoundException("Không tìm thấy mã voucher.");
+            }
+
+            var code = dto.Code.Trim().ToUpper();
+            var exists = await _db.Vouchers.AnyAsync(v => v.TenantId == tenantId && v.Code == code && v.VoucherId != voucherId);
+            if (exists)
+            {
+                throw new AppException($"Mã voucher '{code}' đã được sử dụng cho một voucher khác.");
+            }
+
+            if (dto.StartDate >= dto.EndDate)
+            {
+                throw new AppException("Ngày kết thúc phải sau ngày bắt đầu.");
+            }
+
+            voucher.StoreId = dto.StoreId;
+            voucher.Code = code;
+            voucher.Title = dto.Title.Trim();
+            voucher.Description = dto.Description?.Trim();
+            voucher.DiscountType = dto.DiscountType.ToLower() == "fixed" ? "fixed" : "percent";
+            voucher.DiscountValue = dto.DiscountValue;
+            voucher.MaxDiscount = dto.DiscountType.ToLower() == "percent" ? dto.MaxDiscount : null;
+            voucher.MinOrderAmount = dto.MinOrderAmount;
+            voucher.MaxUsageTotal = dto.MaxUsageTotal;
+            voucher.StartDate = dto.StartDate;
+            voucher.EndDate = dto.EndDate;
+            voucher.IsActive = dto.IsActive;
+
+            await _db.SaveChangesAsync();
+
+            var storeName = "Tất cả chi nhánh";
+            if (voucher.StoreId.HasValue)
+            {
+                var store = await _db.Stores.FindAsync(voucher.StoreId.Value);
+                if (store != null) storeName = store.Name;
+            }
+
+            return new VoucherAdminDto
+            {
+                VoucherId = voucher.VoucherId,
+                TenantId = voucher.TenantId,
+                StoreId = voucher.StoreId,
+                StoreName = storeName,
+                Code = voucher.Code,
+                Title = voucher.Title,
+                Description = voucher.Description,
+                DiscountType = voucher.DiscountType,
+                DiscountValue = voucher.DiscountValue,
+                MaxDiscount = voucher.MaxDiscount,
+                MinOrderAmount = voucher.MinOrderAmount,
+                MaxUsageTotal = voucher.MaxUsageTotal,
+                UsedCount = voucher.UsedCount,
+                StartDate = voucher.StartDate,
+                EndDate = voucher.EndDate,
+                IsActive = voucher.IsActive,
+                CreatedAt = voucher.CreatedAt
+            };
+        }
+
+        public async Task<bool> DeleteVoucherAsync(int tenantId, int voucherId)
+        {
+            var voucher = await _db.Vouchers.FirstOrDefaultAsync(v => v.TenantId == tenantId && v.VoucherId == voucherId);
+            if (voucher == null)
+            {
+                throw new NotFoundException("Không tìm thấy mã voucher.");
+            }
+
+            _db.Vouchers.Remove(voucher);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ToggleVoucherAsync(int tenantId, int voucherId)
+        {
+            var voucher = await _db.Vouchers.FirstOrDefaultAsync(v => v.TenantId == tenantId && v.VoucherId == voucherId);
+            if (voucher == null)
+            {
+                throw new NotFoundException("Không tìm thấy mã voucher.");
+            }
+
+            voucher.IsActive = !voucher.IsActive;
+            await _db.SaveChangesAsync();
+            return voucher.IsActive;
+        }
     }
 
     public class OrderService : IOrderService

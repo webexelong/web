@@ -294,6 +294,55 @@ export interface VoucherValidationResult {
   finalAmount: number;
 }
 
+export interface VoucherAdminDto {
+  voucherId: number;
+  tenantId: number;
+  storeId?: number | null;
+  storeName?: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  discountType: 'percent' | 'fixed';
+  discountValue: number;
+  maxDiscount?: number | null;
+  minOrderAmount: number;
+  maxUsageTotal?: number | null;
+  usedCount: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateVoucherDto {
+  storeId?: number | null;
+  code: string;
+  title: string;
+  description?: string | null;
+  discountType: 'percent' | 'fixed';
+  discountValue: number;
+  maxDiscount?: number | null;
+  minOrderAmount: number;
+  maxUsageTotal?: number | null;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
+export type UpdateVoucherDto = CreateVoucherDto;
+
+export interface VoucherDto {
+  voucherId: number;
+  code: string;
+  title: string;
+  description?: string | null;
+  discountType: 'percent' | 'fixed';
+  discountValue: number;
+  maxDiscount?: number | null;
+  minOrderAmount: number;
+  endDate: string;
+}
+
 // --- Analytics Types ---
 export interface TopProductDto {
   menuItemId: number;

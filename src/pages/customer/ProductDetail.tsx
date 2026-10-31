@@ -1,3 +1,4 @@
+import { resolveDisplayUrl } from '../../components/ImageCropUpload';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
@@ -108,6 +109,25 @@ export default function ProductDetail() {
 
   return (
     <div className="font-body-md text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed min-h-screen bg-background animate-in fade-in duration-300">
+      {/* Floating Added Notification Toast */}
+      {isAdded && (
+        <div className="fixed top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50 bg-emerald-950/95 text-emerald-100 border border-emerald-500/50 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-in slide-in-from-top-3 duration-300">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-emerald-400 text-3xl shrink-0">check_circle</span>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-white truncate">Đã thêm vào giỏ hàng!</p>
+              <p className="text-xs text-emerald-300 truncate">{item.name} (x{quantity})</p>
+            </div>
+          </div>
+          <Link
+            to="/cart"
+            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold rounded-xl shrink-0 transition"
+          >
+            Xem giỏ
+          </Link>
+        </div>
+      )}
+
       {/* Top Header */}
       <nav className="w-full sticky top-0 z-40 bg-surface/95 dark:bg-surface-dim backdrop-blur-md border-b border-outline-variant/10 shadow-xs">
         <div className="flex justify-between items-center px-4 sm:px-container-margin py-3.5 max-w-7xl mx-auto">
@@ -132,8 +152,9 @@ export default function ProductDetail() {
         <section className="w-full">
           <div className="relative aspect-4/3 sm:aspect-square w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-surface-container-low border border-primary/10 shadow-sm">
             <img 
-              src={item.image} 
-              alt={item.name} 
+              src={resolveDisplayUrl(item.image) || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600'} 
+              alt={item.name}
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600'; }} 
               className={`w-full h-full object-cover transition-transform duration-500 hover:scale-105 ${isOutOfStock ? 'grayscale-[0.4] opacity-80' : ''}`}
             />
             {isOutOfStock ? (

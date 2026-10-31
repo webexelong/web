@@ -13,8 +13,243 @@
     background-color: #F6F1E7;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     color: #1b1c1c;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
+
+/* ==========================================================================
+   WARM ESPRESSO DARK THEME SYSTEM (Target Aesthetic: media_1793435737305)
+   Deep obsidian coffee canvas (#1B1613), rich dark table cards (#140F0D),
+   crisp high-contrast warm white (#F8F4EE), legible beige-gray subtexts (#A4968C),
+   and warm caramel-amber accents (#8C4F27 / #D48D48).
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #1B1613 !important;
+  color: #F8F4EE !important;
+}
+
+/* 1. Canvas & Structural Layouts */
+html.dark #root,
+html.dark .bg-background,
+html.dark .bg-surface,
+html.dark [class*="bg-background"],
+html.dark [class*="bg-surface/"],
+html.dark .demo-shell,
+html.dark .demo-top {
+  background-color: #1B1613 !important;
+}
+
+/* 2. Seamless Header & Top Bar Navigation */
+html.dark header,
+html.dark .glass-header {
+  background-color: rgba(27, 22, 19, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 3. Sidebars & Drawers (Seamless background with subtle dividing border) */
+html.dark aside,
+html.dark nav {
+  background-color: #1B1613 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 4. Dark Cards & Containers (Rich obsidian coffee card matching reference screenshot) */
+html.dark .bg-surface-container-lowest,
+html.dark .bg-white,
+html.dark [class*="bg-white/9"],
+html.dark [class*="bg-white/8"] {
+  background-color: #140F0D !important;
+  color: #F8F4EE !important;
+}
+
+html.dark .bg-surface-container-low,
+html.dark [class*="bg-surface-container-low"] {
+  background-color: #181310 !important;
+}
+
+html.dark .bg-surface-container,
+html.dark [class*="bg-surface-container/"] {
+  background-color: #201915 !important;
+}
+
+html.dark .bg-surface-container-high,
+html.dark .bg-surface-container-highest,
+html.dark .bg-surface-variant {
+  background-color: #261E1A !important;
+}
+
+/* 5. Comprehensive Text High-Contrast Rules (Fixes unreadable dark text across all pages) */
+
+/* 5.1 Main Headings, Titles, Brand Names, and Values: Crisp Warm White (#F8F4EE / #FFFFFF) */
+html.dark,
+html.dark body,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark .text-on-surface,
+html.dark [class*="text-on-surface"],
+html.dark .text-on-background,
+html.dark [class*="text-on-background"],
+html.dark .text-primary,
+html.dark [class*="text-primary"],
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-stone-900,
+html.dark .text-stone-800,
+html.dark .text-stone-950,
+html.dark .text-black {
+  color: #F8F4EE !important;
+}
+
+/* 5.2 Subtexts, Descriptions, Metadata, Slugs, Dates, Inactive Chips: Crisp Legible Warm Gray (#A4968C) */
+html.dark .text-on-surface-variant,
+html.dark [class*="text-on-surface-variant"],
+html.dark .text-gray-700,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-gray-400,
+html.dark .text-stone-700,
+html.dark .text-stone-600,
+html.dark .text-stone-500,
+html.dark .text-stone-400 {
+  color: #A4968C !important;
+}
+
+/* 5.3 Interactive Links & Icon Accents (Warm Golden Caramel #E8B98A) */
+html.dark a.text-primary,
+html.dark button.text-primary,
+html.dark span.material-symbols-outlined.text-primary,
+html.dark a[class*="text-primary"],
+html.dark button[class*="text-primary"] {
+  color: #E8B98A !important;
+}
+
+html.dark a.text-primary:hover,
+html.dark button.text-primary:hover {
+  color: #FBD38D !important;
+}
+
+/* 5.4 Amber & Warm Notice Badges (Replaces dark muddy browns with bright gold/amber) */
+html.dark .text-amber-950,
+html.dark .text-amber-900,
+html.dark .text-amber-800,
+html.dark .text-amber-700,
+html.dark .text-orange-950,
+html.dark .text-orange-900,
+html.dark .text-orange-800 {
+  color: #FCD34D !important;
+}
+
+html.dark .bg-amber-500\/10,
+html.dark .bg-amber-500\/15,
+html.dark .bg-amber-500\/20,
+html.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* 5.5 Emerald / Success Badges (Bright mint #34D399) */
+html.dark .text-emerald-950,
+html.dark .text-emerald-900,
+html.dark .text-emerald-800,
+html.dark .text-emerald-700 {
+  color: #34D399 !important;
+}
+
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* 5.6 Rose / Red / Error Alerts (Bright coral #F87171) */
+html.dark .text-rose-950,
+html.dark .text-rose-900,
+html.dark .text-rose-800,
+html.dark .text-rose-700,
+html.dark .text-red-950,
+html.dark .text-red-900,
+html.dark .text-red-800,
+html.dark .text-red-700 {
+  color: #F87171 !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-rose-100,
+html.dark .bg-red-50,
+html.dark .bg-red-100 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+
+/* 6. Action Buttons & Active Chips (Terracotta Caramel #8C4F27 as in screenshot) */
+html.dark button.bg-primary,
+html.dark a.bg-primary {
+  background-color: #8C4F27 !important;
+  color: #FFFFFF !important;
+}
+
+html.dark button.bg-primary:hover,
+html.dark a.bg-primary:hover {
+  background-color: #9E5A2D !important;
+}
+
+html.dark .bg-secondary-container {
+  background-color: rgba(212, 141, 72, 0.15) !important;
+  color: #E8B98A !important;
+}
+
+/* 7. Outlines & Subtle Borders */
+html.dark [class*="border-outline-variant"],
+html.dark [class*="border-surface-container"],
+html.dark [class*="border-surface-variant"],
+html.dark .border-outline,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-primary\/5,
+html.dark .border-primary\/10,
+html.dark .border-primary\/15,
+html.dark .border-primary\/20,
+html.dark .divide-outline-variant\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 8. Form Controls & Search Inputs (Pill-shaped with crisp text) */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark select,
+html.dark textarea {
+  background-color: #241C18 !important;
+  color: #F8F4EE !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #8D7F75 !important;
+}
+
+/* 9. Data Tables (Matching reference screenshot exactly) */
+html.dark table thead,
+html.dark table th {
+  background-color: #16110F !important;
+  color: #A4968C !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark table tbody tr {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
 @layer utilities {
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -24,6 +259,10 @@
     backdrop-filter: blur(8px);
     background-color: rgba(246, 241, 231, 0.9);
   }
+
+  html.dark .glass-header {
+    background-color: rgba(27, 22, 19, 0.95);
+  }
   
   .glass-card {
     background: rgba(255, 255, 255, 0.8);
@@ -31,9 +270,14 @@
     border: 1px solid rgba(85, 55, 34, 0.05);
   }
 
+  html.dark .glass-card {
+    background: rgba(20, 15, 13, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
   /* Shared landing-page canvas for all application and demo shells. */
-  .demo-shell,
-  .demo-top {
+  :root:not(.dark) .demo-shell,
+  :root:not(.dark) .demo-top {
     background-color: #F6F1E7 !important;
   }
 

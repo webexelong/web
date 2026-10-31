@@ -36,6 +36,7 @@ const TableManagement = lazy(() => import('./pages/admin/TableManagement'));
 const StaffManagement = lazy(() => import('./pages/admin/StaffManagement'));
 const PaymentSettings = lazy(() => import('./pages/admin/PaymentSettings'));
 const SubscriptionManagement = lazy(() => import('./pages/admin/SubscriptionManagement'));
+const VoucherManagement = lazy(() => import('./pages/admin/VoucherManagement'));
 
 const SystemAdminDashboard = lazy(() => import('./pages/system-admin/SystemAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/system-admin/TenantManagement'));
@@ -44,10 +45,12 @@ import AnalyticsTracker from './components/AnalyticsTracker';
 import SubscriptionFeatureGate from './components/SubscriptionFeatureGate';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
 
 function App() {
   return (
     <NotificationProvider><Router>
+      <NetworkStatusBanner />
       <AnalyticsTracker />
       <Suspense fallback={<div className="min-h-screen bg-background p-6 text-on-surface" role="status">Đang tải trang...</div>}>
         <Routes>
@@ -106,8 +109,10 @@ function App() {
           </ProtectedRoute>
         )}>
           <Route index element={<AdminDashboard />} />
+          <Route path="orders" element={<StaffOrderDashboard />} />
           <Route path="analytics" element={<SubscriptionFeatureGate feature="advanced_analytics" requiredPlan="Premium"><Analytics /></SubscriptionFeatureGate>} />
           <Route path="menu" element={<MenuManagement />} />
+          <Route path="vouchers" element={<VoucherManagement />} />
           <Route path="inventory" element={<SubscriptionFeatureGate feature="inventory" requiredPlan="Premium"><InventoryManagement /></SubscriptionFeatureGate>} />
           <Route path="tables" element={<TableManagement />} />
           <Route path="staff" element={<StaffManagement />} />
