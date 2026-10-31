@@ -45,10 +45,12 @@ import AnalyticsTracker from './components/AnalyticsTracker';
 import SubscriptionFeatureGate from './components/SubscriptionFeatureGate';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationProvider from './components/NotificationProvider';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
 
 function App() {
   return (
     <NotificationProvider><Router>
+      <NetworkStatusBanner />
       <AnalyticsTracker />
       <Suspense fallback={<div className="min-h-screen bg-background p-6 text-on-surface" role="status">Đang tải trang...</div>}>
         <Routes>

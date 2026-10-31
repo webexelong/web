@@ -9,8 +9,10 @@ import { apiClient } from '../../api/apiClient';
 import { voucherApi } from '../../api/apis';
 import type { CustomerProfileDto } from '../../types/apiTypes';
 import AuthModal from '../../components/AuthModal';
+import { useNetworkStatus } from '../../components/NetworkStatusBanner';
 
 export default function Cart() {
+  const isOnline = useNetworkStatus();
   const {
     cart,
     updateQuantity,
@@ -554,22 +556,28 @@ export default function Cart() {
                     {checkoutError}
                   </p>
                 )}
+                {!isOnline && (
+                  <div className="mt-4 p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex items-center gap-2.5 text-amber-900 dark:text-amber-200 text-xs font-bold animate-pulse">
+                    <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">wifi_off</span>
+                    <span>Bạn đang ngoại tuyến. Giỏ hàng vẫn được lưu an toàn. Vui lòng kết nối Internet để gửi đơn!</span>
+                  </div>
+                )}
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
                     onClick={() => handleCheckout('cash')}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isOnline}
                     className="w-full rounded-2xl border border-primary/30 bg-surface px-4 py-4 text-primary font-bold hover:bg-primary/5 transition-all active:scale-[0.99] disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined block mb-1">payments</span>
-                    {isSubmitting ? 'Đang gửi đơn...' : 'Đặt món, trả tiền mặt'}
+                    {!isOnline ? 'Đang ngoại tuyến' : (isSubmitting ? 'Đang gửi đơn...' : 'Đặt món, trả tiền mặt')}
                   </button>
                   <button
                     onClick={() => handleCheckout('payos')}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isOnline}
                     className="w-full rounded-2xl bg-primary px-4 py-4 text-white font-bold hover:bg-primary-container transition-all active:scale-[0.99] shadow-lg disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined block mb-1">qr_code_2</span>
-                    {isSubmitting ? 'Đang gửi đơn...' : 'Thanh toán QR PayOS'}
+                    {!isOnline ? 'Đang ngoại tuyến' : (isSubmitting ? 'Đang gửi đơn...' : 'Thanh toán QR PayOS')}
                   </button>
                 </div>
                 <p className="mt-2 text-center text-xs text-on-surface-variant">

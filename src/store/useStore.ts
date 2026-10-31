@@ -287,6 +287,37 @@ const loadInitialMenuItems = (): MenuItem[] => {
   return defaultMenuItems;
 };
 
+const CART_STORAGE_KEY = 'webcafe_customer_cart';
+
+const loadInitialCart = (): CartItem[] => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const saved = localStorage.getItem(CART_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse cached cart', e);
+  }
+  return [];
+};
+
+const saveCartToStorage = (cart: CartItem[]) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    if (!cart || cart.length === 0) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } else {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    }
+  } catch (e) {
+    console.warn('Failed to save cart to localStorage', e);
+  }
+};
+
 export const useStore = create<StoreState>((set, get) => ({
   menuItems: loadInitialMenuItems(),
   categories: mockCategories,
@@ -299,7 +330,7 @@ export const useStore = create<StoreState>((set, get) => ({
   currentTable: initialGuestSession?.tableNumber || (initialGuestSession?.tableId ? String(initialGuestSession.tableId) : null),
   currentTableId: typeof initialGuestSession?.tableId === 'number' ? initialGuestSession.tableId : (Number(initialGuestSession?.tableId) || null),
   currentTableNumber: initialGuestSession?.tableNumber || null,
-  cart: [],
+  cart: loadInitialCart(),
   appliedVoucherCode: null,
   voucherDiscount: 0,
   isLoading: false,
@@ -507,7 +538,9 @@ export const useStore = create<StoreState>((set, get) => ({
         note: options.note,
         rawDto: item.rawDto || item,
       };
-      set({ cart: [...get().cart, newCartItem] });
+      const updatedCart = [...get().cart, newCartItem];
+      set({ cart: updatedCart });
+      saveCartToStorage(updatedCart);
     }
 
     // Gửi sự kiện add_to_cart lên Google Analytics 4
@@ -538,7 +571,10 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
-  clearCart: () => set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 }),
+  clearCart: () => {
+    saveCartToStorage([]);
+    set({ cart: [], appliedVoucherCode: null, voucherDiscount: 0 });
+  },
 
   setVoucher: (code, discount) => set({ appliedVoucherCode: code, voucherDiscount: discount }),
 
@@ -557,6 +593,7 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: new Date().toISOString()
     };
     
+    saveCartToStorage([]);
     set({ orders: [newOrder, ...get().orders], activeOrder: newOrder, cart: [] });
   },
 

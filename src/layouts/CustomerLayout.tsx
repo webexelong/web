@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
 import UserMenu from '../components/UserMenu';
 import SettingsDropdown from '../components/SettingsDropdown';
+import CustomerNotificationToast from '../components/CustomerNotificationToast';
 
 const AuthModal = lazy(() => import('../components/AuthModal'));
 
@@ -116,6 +117,9 @@ export default function CustomerLayout() {
           </div>
         </div>
       </header>
+
+      {/* Realtime Floating Notification for Customer Orders */}
+      <CustomerNotificationToast />
 
       {/* Main Content - Full width responsive */}
       <main className="flex-1 w-full pt-[104px] md:pt-0">
