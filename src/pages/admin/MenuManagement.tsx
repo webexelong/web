@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import Pagination from '../../components/Pagination';
+import ImageCropUpload, { resolveDisplayUrl } from '../../components/ImageCropUpload';
 import { useNotification } from '../../components/NotificationProvider';
 
 interface Category {
@@ -35,7 +36,7 @@ interface MenuItem {
 }
 
 export default function MenuManagement() {
-  const { confirm } = useNotification();
+  const { toast, confirm } = useNotification();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,8 +118,11 @@ export default function MenuManagement() {
       setShowAddModal(false);
       loadData();
       resetForm();
+      toast('Thêm món mới thành công!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Thêm món thất bại');
+      const msg = err.response?.data?.message || 'Thêm món thất bại';
+      setError(msg);
+      toast(msg, 'error');
     }
   };
 
@@ -143,8 +147,11 @@ export default function MenuManagement() {
       setEditingItem(null);
       loadData();
       resetForm();
+      toast('Cập nhật món thành công!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Cập nhật món thất bại');
+      const msg = err.response?.data?.message || 'Cập nhật món thất bại';
+      setError(msg);
+      toast(msg, 'error');
     }
   };
 
@@ -154,8 +161,11 @@ export default function MenuManagement() {
       setError('');
       await apiClient.delete(`/menu/items/${itemId}`);
       loadData();
+      toast('Đã xóa món thành công!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Xóa món thất bại');
+      const msg = err.response?.data?.message || 'Xóa món thất bại';
+      setError(msg);
+      toast(msg, 'error');
     }
     }});
   };
@@ -168,8 +178,11 @@ export default function MenuManagement() {
       setShowCategoryModal(false);
       loadData();
       setCategoryForm({ name: '', icon: '', sortOrder: 0 });
+      toast('Thêm danh mục mới thành công!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Thêm danh mục thất bại');
+      const msg = err.response?.data?.message || 'Thêm danh mục thất bại';
+      setError(msg);
+      toast(msg, 'error');
     }
   };
 
@@ -468,7 +481,7 @@ export default function MenuManagement() {
                           <div className="flex items-center gap-3">
                             <img 
                               className="w-12 h-12 rounded-xl object-cover" 
-                              src={item.imageUrl || 'https://via.placeholder.com/100'} 
+                              src={resolveDisplayUrl(item.imageUrl) || 'https://via.placeholder.com/100'} 
                               alt={item.name} 
                             />
                             <div>
@@ -509,18 +522,26 @@ export default function MenuManagement() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button 
-                            onClick={() => openEditModal(item)}
-                            className="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-all text-xs font-bold active:scale-95 mr-2"
-                          >
-                            Sửa
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteItem(item.menuItemId)}
-                            className="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all text-xs font-bold active:scale-95"
-                          >
-                            Xóa
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              type="button"
+                              onClick={() => openEditModal(item)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-[#E8B98A] hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white border border-primary/25 transition-all text-xs font-bold shadow-xs active:scale-95"
+                              title="Chỉnh sửa món"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <span>Sửa</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleDeleteItem(item.menuItemId)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white border border-red-200 dark:border-red-900/40 transition-all text-xs font-bold shadow-xs active:scale-95"
+                              title="Xóa món"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                              <span>Xóa</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -616,16 +637,11 @@ export default function MenuManagement() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL hình ảnh</label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
+              <ImageCropUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+                label="Hình ảnh món đồ uống *"
+              />
 
               {renderSizeOptionsSection()}
 
@@ -740,15 +756,11 @@ export default function MenuManagement() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL hình ảnh</label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
+              <ImageCropUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+                label="Hình ảnh món đồ uống *"
+              />
 
               {renderSizeOptionsSection()}
 

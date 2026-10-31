@@ -106,6 +106,7 @@ function App() {
           </ProtectedRoute>
         )}>
           <Route index element={<AdminDashboard />} />
+          <Route path="orders" element={<StaffOrderDashboard />} />
           <Route path="analytics" element={<SubscriptionFeatureGate feature="advanced_analytics" requiredPlan="Premium"><Analytics /></SubscriptionFeatureGate>} />
           <Route path="menu" element={<MenuManagement />} />
           <Route path="inventory" element={<SubscriptionFeatureGate feature="inventory" requiredPlan="Premium"><InventoryManagement /></SubscriptionFeatureGate>} />

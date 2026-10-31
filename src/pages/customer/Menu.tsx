@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import MobileBottomNav from '../../components/MobileBottomNav';
 import Pagination from '../../components/Pagination';
 import DeferredAiSommelierChat from '../../components/DeferredAiSommelierChat';
+import { resolveDisplayUrl } from '../../components/ImageCropUpload';
 
 const DEFAULT_CATEGORIES = [
   { id: 'Cà Phê Pha Máy', name: 'Cà Phê Pha Máy', icon: 'coffee' },
@@ -13,8 +14,10 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
+  if (!imageUrl) return '';
+  const resolved = resolveDisplayUrl(imageUrl);
   try {
-    const url = new URL(imageUrl);
+    const url = new URL(resolved);
     if (url.hostname === 'images.unsplash.com') {
       url.searchParams.set('w', String(width));
       url.searchParams.set('q', '70');
@@ -22,18 +25,20 @@ const getOptimizedImageUrl = (imageUrl: string, width = 320) => {
       return url.toString();
     }
     if (url.hostname.includes('googleusercontent.com')) {
-      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      const cleanUrl = resolved.replace(/=[wsphck0-9-]+$/i, '');
       return `${cleanUrl}=w${width}-rw`;
     }
-    return imageUrl;
+    return resolved;
   } catch {
-    return imageUrl;
+    return resolved;
   }
 };
 
 const getResponsiveImageSources = (imageUrl: string) => {
+  if (!imageUrl) return undefined;
+  const resolved = resolveDisplayUrl(imageUrl);
   try {
-    const url = new URL(imageUrl);
+    const url = new URL(resolved);
     if (url.hostname === 'images.unsplash.com') {
       return [160, 240, 360, 480, 640].map(width => {
         const sizedUrl = new URL(url);
@@ -44,7 +49,7 @@ const getResponsiveImageSources = (imageUrl: string) => {
       }).join(', ');
     }
     if (url.hostname.includes('googleusercontent.com')) {
-      const cleanUrl = imageUrl.replace(/=[wsphck0-9-]+$/i, '');
+      const cleanUrl = resolved.replace(/=[wsphck0-9-]+$/i, '');
       return [160, 240, 320, 480, 640].map(width => `${cleanUrl}=w${width}-rw ${width}w`).join(', ');
     }
     return undefined;

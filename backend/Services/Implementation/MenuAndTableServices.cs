@@ -309,12 +309,13 @@ namespace WebCafe.Backend.Services.Implementation
             item.SortOrder = dto.SortOrder;
             item.UpdatedAt = DateTime.UtcNow;
 
-            // Cập nhật Sizes
+            // Cập nhật Sizes (Reconcile để tránh trùng lặp unique key index IX_MenuItemSizes_MenuItemId_SizeId)
             if (dto.CustomSizes != null)
             {
                 var existingSizes = await _db.MenuItemSizes.Where(ms => ms.MenuItemId == item.MenuItemId).ToListAsync();
-                _db.MenuItemSizes.RemoveRange(existingSizes);
 
+                // Chuẩn hóa danh sách sizeId cần cập nhật
+                var targetSizes = new List<(int SizeId, decimal ExtraPrice)>();
                 foreach (var cs in dto.CustomSizes)
                 {
                     int sizeId = cs.SizeId ?? 0;
@@ -336,7 +337,34 @@ namespace WebCafe.Backend.Services.Implementation
                     }
                     if (sizeId > 0)
                     {
-                        _db.MenuItemSizes.Add(new MenuItemSize { MenuItemId = item.MenuItemId, SizeId = sizeId, ExtraPrice = cs.ExtraPrice });
+                        targetSizes.Add((sizeId, cs.ExtraPrice));
+                    }
+                }
+
+                // Xóa các size cũ không còn trong danh sách mới
+                var targetSizeIds = targetSizes.Select(t => t.SizeId).ToHashSet();
+                var toRemove = existingSizes.Where(es => !targetSizeIds.Contains(es.SizeId)).ToList();
+                if (toRemove.Count > 0)
+                {
+                    _db.MenuItemSizes.RemoveRange(toRemove);
+                }
+
+                // Cập nhật giá extraPrice cho size đã tồn tại, hoặc thêm mới nếu chưa có
+                foreach (var target in targetSizes)
+                {
+                    var existing = existingSizes.FirstOrDefault(es => es.SizeId == target.SizeId);
+                    if (existing != null)
+                    {
+                        existing.ExtraPrice = target.ExtraPrice;
+                    }
+                    else
+                    {
+                        _db.MenuItemSizes.Add(new MenuItemSize
+                        {
+                            MenuItemId = item.MenuItemId,
+                            SizeId = target.SizeId,
+                            ExtraPrice = target.ExtraPrice
+                        });
                     }
                 }
             }

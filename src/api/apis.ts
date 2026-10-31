@@ -77,6 +77,20 @@ export const menuApi = {
     });
     return res.data.data;
   },
+  uploadImage: async (file: File | Blob, subType: 'menu' | 'avatar' = 'menu'): Promise<string> => {
+    const formData = new FormData();
+    const fileName = file instanceof File ? file.name : 'cropped-image.webp';
+    formData.append('file', file, fileName);
+    formData.append('subType', subType);
+
+    const res = await apiClient.post<ApiResponse<{ imageUrl: string }>>(`/Upload/image?subType=${subType}`, formData, {
+      headers: {
+        'Content-Type': undefined,
+      },
+    });
+    const data = res.data?.data as any;
+    return data?.imageUrl || data?.ImageUrl || (res.data as any)?.imageUrl || '';
+  },
   getMenuItemById: async (id: number) => {
     const res = await apiClient.get<ApiResponse<MenuItemDto>>(`/Menu/items/${id}`);
     return res.data.data;
