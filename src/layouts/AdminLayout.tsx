@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useStore } from '../store/useStore';
 import { meApi } from '../api/apis';
 import SettingsDropdown from '../components/SettingsDropdown';
+import NotificationBell from '../components/NotificationBell';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -157,9 +158,8 @@ export default function AdminLayout() {
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-container/50 dark:hover:bg-white/10 transition-colors text-on-surface-variant dark:text-[#F3EDE6]">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            {/* Realtime Notification Bell */}
+            <NotificationBell storeId={selectedStoreId} isAdmin={true} />
             
             {/* Settings Dropdown */}
             <SettingsDropdown />

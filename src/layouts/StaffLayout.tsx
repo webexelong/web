@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
 import SettingsDropdown from '../components/SettingsDropdown';
+import NotificationBell from '../components/NotificationBell';
 
 export default function StaffLayout() {
   const navigate = useNavigate();
@@ -50,16 +51,8 @@ export default function StaffLayout() {
             <input className="bg-transparent border-none focus:ring-0 text-xs text-on-surface-variant w-40 outline-none" placeholder="Tìm đơn hàng..." type="text" />
           </div>
           
-          <button 
-            onClick={() => navigate('/staff/orders')}
-            className="relative p-1.5 sm:p-2 rounded-full hover:bg-surface-variant text-on-surface-variant transition-colors flex items-center justify-center"
-            title="Đơn hàng mới"
-          >
-            <span className="material-symbols-outlined text-xl">notifications</span>
-            {pendingCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
-            )}
-          </button>
+          {/* Realtime Notification Bell */}
+          <NotificationBell storeId={currentStoreId} isAdmin={false} />
           
           {/* Settings Dropdown with Staff Sound Control */}
           <SettingsDropdown isStaff />
