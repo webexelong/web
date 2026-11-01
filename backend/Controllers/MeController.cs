@@ -38,6 +38,55 @@ public class MeController : ControllerBase
         return Ok(ApiResponse<List<MyStoreDto>>.Ok(stores));
     }
 
+    [HttpGet("customers")]
+    [Authorize(Policy = AppPolicies.TenantAdminAccess)]
+    public async Task<ActionResult<ApiResponse<CustomerListResponseDto>>> GetMyCustomers(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        if (!_currentUser.TenantId.HasValue) return Forbid();
+        var tenantId = _currentUser.TenantId.Value;
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+        var query = _db.Customers.AsNoTracking().Where(c => c.TenantId == tenantId);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(c => c.Phone.Contains(s) || (c.Name != null && c.Name.ToLower().Contains(s)));
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CustomerListItemDto
+            {
+                CustomerId = c.CustomerId,
+                TenantId = c.TenantId,
+                TenantName = string.Empty,
+                Phone = c.Phone,
+                Name = c.Name,
+                TotalPoints = c.TotalPoints,
+                TotalSpent = c.TotalSpent,
+                VisitCount = c.VisitCount,
+                CreatedAt = c.CreatedAt,
+                LastVisitAt = c.LastVisitAt
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<CustomerListResponseDto>.Ok(new CustomerListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        }));
+    }
+
     [HttpGet("subscription")]
     public async Task<ActionResult<ApiResponse<SubscriptionAccessDto>>> GetSubscription()
     {
@@ -59,81 +108,133 @@ public class MeController : ControllerBase
 
     [HttpPost("subscription/upgrade")]
     [Authorize(Policy = AppPolicies.TenantAdminAccess)]
-    public async Task<ActionResult<ApiResponse<SubscriptionAccessDto>>> UpgradeSubscription([FromBody] UpgradeSubscriptionRequest request)
+    public async Task<ActionResult<ApiResponse<object>>> UpgradeSubscription([FromBody] UpgradeSubscriptionRequest request)
     {
         if (!_currentUser.TenantId.HasValue) return Forbid();
         var tenantId = _currentUser.TenantId.Value;
         var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId && t.IsActive);
-        if (tenant == null) return NotFound(ApiResponse<SubscriptionAccessDto>.Fail("Không tìm thấy quán đang hoạt động."));
+        if (tenant == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy quán đang hoạt động."));
 
         var targetCode = request.PlanCode?.Trim().ToLowerInvariant();
         var targetPlan = await _db.SubscriptionPlans.Include(p => p.Features)
             .FirstOrDefaultAsync(p => p.Code == targetCode && p.IsActive);
-        if (targetPlan == null) return BadRequest(ApiResponse<SubscriptionAccessDto>.Fail("Gói nâng cấp không tồn tại hoặc đang tạm ngưng."));
+        if (targetPlan == null) return BadRequest(ApiResponse<object>.Fail("Gói dịch vụ không tồn tại hoặc đang tạm ngưng."));
 
         var subscription = await _db.TenantSubscriptions.Include(s => s.Plan)
             .Where(s => s.TenantId == tenantId && s.Status != "cancelled")
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
         if (subscription?.Plan == null)
-            return BadRequest(ApiResponse<SubscriptionAccessDto>.Fail("Quán chưa có gói dịch vụ hiện tại hợp lệ."));
+            return BadRequest(ApiResponse<object>.Fail("Quán chưa có gói dịch vụ hiện tại hợp lệ."));
 
         if (string.Equals(subscription.Plan.Code, targetPlan.Code, StringComparison.OrdinalIgnoreCase))
         {
-            var currentAccess = await _subscriptionService.GetAccessAsync(tenantId);
-            return Ok(ApiResponse<SubscriptionAccessDto>.Ok(currentAccess, "Quán đang sử dụng gói này."));
+            return BadRequest(ApiResponse<object>.Fail("Quán đang sử dụng gói này rồi."));
         }
 
-        var planRanks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["basic"] = 1,
-            ["premium"] = 2,
-            ["pro"] = 3
-        };
-        if (!planRanks.TryGetValue(subscription.Plan.Code, out var currentRank) ||
-            !planRanks.TryGetValue(targetPlan.Code, out var targetRank) || targetRank <= currentRank)
-            return BadRequest(ApiResponse<SubscriptionAccessDto>.Fail("Chỉ có thể tự nâng cấp lên gói cao hơn. Gói hiện tại không bị thay đổi."));
-
-        var previousPlan = subscription.Plan;
         var now = DateTime.UtcNow;
-        await using var transaction = await _db.Database.BeginTransactionAsync();
+        var contactPhone = !string.IsNullOrWhiteSpace(request.Phone) ? request.Phone.Trim() : tenant.OwnerPhone;
 
-        tenant.Plan = targetPlan.Code;
-        tenant.MaxStores = targetPlan.MaxStores;
-        subscription.PlanId = targetPlan.PlanId;
-        if (subscription.Status == "suspended" || subscription.Status == "grace")
+        var existingRequest = await _db.SubscriptionUpgradeRequests
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Status == "pending");
+
+        if (existingRequest != null)
         {
-            subscription.Status = "active";
-            subscription.CurrentPeriodStart = now;
-            subscription.CurrentPeriodEnd = null;
-            subscription.GraceEndsAt = null;
+            existingRequest.RequestedPlanCode = targetPlan.Code;
+            existingRequest.MonthlyPrice = targetPlan.MonthlyPrice;
+            existingRequest.OwnerPhone = contactPhone;
+            existingRequest.Note = request.Note;
+            existingRequest.CreatedAt = now;
+        }
+        else
+        {
+            var newReq = new SubscriptionUpgradeRequest
+            {
+                TenantId = tenantId,
+                TenantName = tenant.Name,
+                OwnerName = tenant.OwnerName,
+                OwnerPhone = contactPhone,
+                OwnerEmail = tenant.OwnerEmail,
+                CurrentPlanCode = subscription.Plan.Code,
+                RequestedPlanCode = targetPlan.Code,
+                MonthlyPrice = targetPlan.MonthlyPrice,
+                Status = "pending",
+                Note = request.Note,
+                CreatedAt = now
+            };
+            _db.SubscriptionUpgradeRequests.Add(newReq);
         }
 
         _db.SystemNotifications.Add(new SystemNotification
         {
-            Type = "tenant_plan_upgraded",
-            Title = "Quán vừa tự nâng cấp gói",
-            Message = $"{tenant.Name} đã nâng cấp từ {previousPlan.Name} lên {targetPlan.Name}. Giá niêm yết {targetPlan.MonthlyPrice:N0}đ/tháng. Chủ quán: {tenant.OwnerName} ({tenant.OwnerEmail}). Gói được áp dụng ngay; phí/ưu đãi trao đổi riêng.",
+            Type = "tenant_plan_upgrade_request",
+            Title = "Yêu cầu đổi gói dịch vụ",
+            Message = $"{tenant.Name} vừa gửi yêu cầu chuyển sang gói {targetPlan.Name} ({targetPlan.MonthlyPrice:N0}đ/tháng). SĐT/Zalo: {contactPhone}. Gói hiện tại: {subscription.Plan.Name}.",
             TenantId = tenant.TenantId,
             TenantName = tenant.Name,
             OwnerEmail = tenant.OwnerEmail,
-            PreviousPlanCode = previousPlan.Code,
+            PreviousPlanCode = subscription.Plan.Code,
             NewPlanCode = targetPlan.Code,
             StandardMonthlyPrice = targetPlan.MonthlyPrice,
             CreatedAt = now
         });
 
         await _db.SaveChangesAsync();
-        await transaction.CommitAsync();
 
-        var access = await _subscriptionService.GetAccessAsync(tenantId);
-        return Ok(ApiResponse<SubscriptionAccessDto>.Ok(access, $"Đã chuyển quán sang gói {targetPlan.Name}. Bộ phận quản trị sẽ liên hệ riêng về phí và ưu đãi."));
+        return Ok(ApiResponse<object>.Ok(new 
+        { 
+            requestedPlan = targetPlan.Code, 
+            status = "pending" 
+        }, $"Yêu cầu chuyển sang gói {targetPlan.Name} đã được gửi thành công. Quản trị viên sẽ liên hệ với bạn qua Zalo/SĐT để xác nhận và kích hoạt gói."));
+    }
+
+    [HttpGet("subscription/my-request")]
+    [Authorize(Policy = AppPolicies.TenantAdminAccess)]
+    public async Task<ActionResult<ApiResponse<object?>>> GetMyPendingRequest()
+    {
+        if (!_currentUser.TenantId.HasValue) return Forbid();
+        var tenantId = _currentUser.TenantId.Value;
+        var req = await _db.SubscriptionUpgradeRequests
+            .Where(r => r.TenantId == tenantId && r.Status == "pending")
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (req == null) return Ok(ApiResponse<object?>.Ok(null));
+        return Ok(ApiResponse<object?>.Ok(new
+        {
+            req.RequestId,
+            req.RequestedPlanCode,
+            req.MonthlyPrice,
+            req.Status,
+            req.Note,
+            req.OwnerPhone,
+            req.CreatedAt
+        }));
+    }
+
+    [HttpDelete("subscription/my-request")]
+    [Authorize(Policy = AppPolicies.TenantAdminAccess)]
+    public async Task<ActionResult<ApiResponse<object>>> CancelMyPendingRequest()
+    {
+        if (!_currentUser.TenantId.HasValue) return Forbid();
+        var tenantId = _currentUser.TenantId.Value;
+        var req = await _db.SubscriptionUpgradeRequests
+            .Where(r => r.TenantId == tenantId && r.Status == "pending")
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (req != null)
+        {
+            req.Status = "cancelled";
+            await _db.SaveChangesAsync();
+        }
+        return Ok(ApiResponse<object>.Ok(new { }, "Đã hủy yêu cầu chuyển gói."));
     }
 }
 
 public sealed class UpgradeSubscriptionRequest
 {
     public string PlanCode { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? Note { get; set; }
 }
 
 public sealed class MyStoreDto

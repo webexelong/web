@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { systemAdminApi } from '../../api/apis';
 import type { TenantDetailDto, CreateTenantDto } from '../../types/apiTypes';
 import Pagination from '../../components/Pagination';
@@ -8,7 +9,16 @@ export default function TenantManagement() {
   const { confirm } = useNotification();
   const [tenants, setTenants] = useState<TenantDetailDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q !== null) {
+      setSearchTerm(q);
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   
   // Pagination State
@@ -396,6 +406,10 @@ export default function TenantManagement() {
                     <div className="text-[11px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
                       <span className="material-symbols-outlined text-xs">table_restaurant</span>
                       <span>{tenant.tableCount} bàn QR</span>
+                    </div>
+                    <div className="text-[11px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                      <span className="material-symbols-outlined text-xs text-emerald-600">group</span>
+                      <span className="font-semibold">{tenant.customerCount ?? 0} khách</span>
                     </div>
                   </td>
 

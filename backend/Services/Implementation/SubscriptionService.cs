@@ -19,13 +19,47 @@ public sealed class SubscriptionService : ISubscriptionService
         var now = DateTime.UtcNow;
         if (subscription.Status == "trialing" && subscription.TrialEndsAt.HasValue && subscription.TrialEndsAt <= now)
         {
-            subscription.Status = "grace";
-            subscription.GraceEndsAt = now.AddDays(7);
+            var freePlan = await _db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Code == "free");
+            if (freePlan != null)
+            {
+                subscription.PlanId = freePlan.PlanId;
+                subscription.Plan = freePlan;
+                subscription.Status = "active";
+                subscription.TrialEndsAt = null;
+                var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId);
+                if (tenant != null)
+                {
+                    tenant.Plan = "free";
+                    tenant.MaxStores = freePlan.MaxStores;
+                }
+            }
+            else
+            {
+                subscription.Status = "grace";
+            }
+            subscription.GraceEndsAt = (subscription.Status == "grace" ? now.AddDays(7) : null);
         }
         else if (subscription.Status == "active" && subscription.CurrentPeriodEnd.HasValue && subscription.CurrentPeriodEnd <= now)
         {
-            subscription.Status = "grace";
-            subscription.GraceEndsAt = now.AddDays(7);
+            var freePlan = await _db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Code == "free");
+            if (freePlan != null)
+            {
+                subscription.PlanId = freePlan.PlanId;
+                subscription.Plan = freePlan;
+                subscription.Status = "active";
+                subscription.TrialEndsAt = null;
+                var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId);
+                if (tenant != null)
+                {
+                    tenant.Plan = "free";
+                    tenant.MaxStores = freePlan.MaxStores;
+                }
+            }
+            else
+            {
+                subscription.Status = "grace";
+            }
+            subscription.GraceEndsAt = (subscription.Status == "grace" ? now.AddDays(7) : null);
         }
         else if (subscription.Status == "grace" && subscription.GraceEndsAt.HasValue && subscription.GraceEndsAt <= now)
         {

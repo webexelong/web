@@ -12,6 +12,7 @@ export default function SystemAdminLayout() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotificationDto[]>([]);
   const { user, logout } = useAuthStore();
+  const [headerSearch, setHeaderSearch] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +65,8 @@ export default function SystemAdminLayout() {
   const navItems = [
     { path: '/system-admin', icon: 'dashboard', label: 'Bảng Điều Khiển' },
     { path: '/system-admin/tenants', icon: 'storefront', label: 'Quán Cafe Đối Tác' },
+    { path: '/system-admin/customers', icon: 'group', label: 'Khách Hàng Toàn Sàn' },
+    { path: '/system-admin/upgrade-requests', icon: 'published_with_changes', label: 'Yêu Cầu Nâng Cấp' },
     { path: '/system-admin/plans', icon: 'tune', label: 'Gói Cước & Cấu Hình' },
   ];
 
@@ -154,6 +157,13 @@ export default function SystemAdminLayout() {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
               <input 
                 className="bg-surface-container-low dark:bg-[#251D19] border border-outline-variant/30 dark:border-white/10 rounded-full pl-10 pr-4 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant/50 dark:placeholder:text-stone-500 text-on-surface dark:text-[#F3EDE6]" 
+                value={headerSearch}
+                onChange={(e) => setHeaderSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && headerSearch.trim()) {
+                    navigate(`/system-admin/tenants?search=${encodeURIComponent(headerSearch.trim())}`);
+                  }
+                }}
                 placeholder="Tìm kiếm quán cafe, đối tác, SĐT..." 
                 type="text" 
               />
@@ -184,13 +194,13 @@ export default function SystemAdminLayout() {
                 <div className="max-h-[65vh] overflow-y-auto">
                   {notifications.length === 0 ? <p className="p-5 text-sm text-on-surface-variant dark:text-stone-400">Chưa có thông báo.</p> : notifications.map(notification => <div key={notification.notificationId} className={`border-b border-outline-variant/10 dark:border-white/5 p-4 last:border-0 ${notification.isRead ? 'bg-white dark:bg-[#1E1714]' : 'bg-amber-50/70 dark:bg-amber-950/30'}`}>
                     <div className="flex items-start gap-2">
-                      <span className="material-symbols-outlined mt-0.5 text-base text-primary dark:text-amber-400">{notification.type === 'tenant_plan_upgraded' ? 'workspace_premium' : 'notifications'}</span>
+                      <span className="material-symbols-outlined mt-0.5 text-base text-primary dark:text-amber-400">{(notification.type === 'tenant_plan_upgraded' || notification.type === 'tenant_plan_upgrade_request') ? 'workspace_premium' : 'notifications'}</span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-on-surface dark:text-[#F3EDE6]">{notification.title}</p>
                         <p className="mt-1 text-xs leading-5 text-on-surface-variant dark:text-[#A4968C]">{notification.message}</p>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <span className="text-[10px] text-on-surface-variant dark:text-stone-400">{new Date(notification.createdAt).toLocaleString('vi-VN')}</span>
-                          <Link to="/system-admin/tenants" onClick={() => { void markNotificationRead(notification.notificationId); setIsNotificationsOpen(false); }} className="text-xs font-bold text-primary dark:text-amber-400 hover:underline">Quản lý quán</Link>
+                          <Link to={(notification.type === 'tenant_plan_upgrade_request' || notification.type === 'tenant_plan_upgraded') ? '/system-admin/upgrade-requests' : '/system-admin/tenants'} onClick={() => { void markNotificationRead(notification.notificationId); setIsNotificationsOpen(false); }} className="text-xs font-bold text-primary dark:text-amber-400 hover:underline">{(notification.type === 'tenant_plan_upgrade_request' || notification.type === 'tenant_plan_upgraded') ? 'Xem yêu cầu' : 'Quản lý quán'}</Link>
                         </div>
                         {!notification.isRead && <button onClick={() => void markNotificationRead(notification.notificationId)} className="mt-2 text-[11px] font-semibold text-on-surface-variant dark:text-stone-400 hover:text-primary dark:hover:text-amber-400">Đánh dấu đã đọc</button>}
                       </div>

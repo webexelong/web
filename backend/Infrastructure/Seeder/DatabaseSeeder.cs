@@ -18,6 +18,11 @@ namespace WebCafe.Backend.Infrastructure.Seeder
                 await db.SaveChangesAsync();
             }
 
+            if (!await db.SubscriptionPlans.AnyAsync(p => p.Code == "free"))
+            {
+                db.SubscriptionPlans.Add(new SubscriptionPlan { Code = "free", Name = "Miễn Phí", MonthlyPrice = 0, MaxStores = 1, MaxStaff = 2, MaxTablesPerStore = 5, IsActive = true });
+                await db.SaveChangesAsync();
+            }
             var seededPlans = await db.SubscriptionPlans.ToListAsync();
             // Chuẩn hóa các giá trị legacy một lần; các mức giá đã được admin
             // tùy chỉnh khác các giá trị cũ sẽ được giữ nguyên.
@@ -26,7 +31,7 @@ namespace WebCafe.Backend.Infrastructure.Seeder
                 if (plan.Code == "basic" && (plan.MonthlyPrice == 0 || plan.MonthlyPrice == 290000)) plan.MonthlyPrice = 239000;
                 if (plan.Code == "premium" && (plan.MonthlyPrice == 499000 || plan.MonthlyPrice == 1500000)) plan.MonthlyPrice = 1299000;
                 if (plan.Code == "pro" && plan.MonthlyPrice == 999000) plan.MonthlyPrice = 1999000;
-                plan.Name = plan.Code switch { "basic" => "Basic", "premium" => "Premium", "pro" => "Pro", _ => plan.Name };
+                plan.Name = plan.Code switch { "free" => "Miễn Phí", "basic" => "Basic", "premium" => "Premium", "pro" => "Pro", _ => plan.Name };
             }
             var featureCodes = new[] { "inventory", "inventory_bom", "inventory_ai", "advanced_analytics", "multi_store", "centralized_reports" };
             var hasPlanFeatures = await db.SubscriptionPlanFeatures.AnyAsync();
@@ -34,12 +39,14 @@ namespace WebCafe.Backend.Infrastructure.Seeder
             {
                 if (!hasPlanFeatures)
                 {
+                    if (plan.Code == "free") { plan.MaxStores = 1; plan.MaxStaff = 2; plan.MaxTablesPerStore = 5; }
                     if (plan.Code == "basic") { plan.MaxStores = 1; plan.MaxStaff = 5; plan.MaxTablesPerStore = 20; }
                     if (plan.Code == "premium") { plan.MaxStores = 5; plan.MaxStaff = 20; plan.MaxTablesPerStore = 50; }
                     if (plan.Code == "pro") { plan.MaxStores = 10; plan.MaxStaff = 50; plan.MaxTablesPerStore = 100; }
                 }
                 var enabled = plan.Code switch
                 {
+                    "free" => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     "basic" => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     "premium" => new HashSet<string>(new[] { "inventory", "inventory_bom", "inventory_ai", "advanced_analytics" }, StringComparer.OrdinalIgnoreCase),
                     _ => new HashSet<string>(featureCodes, StringComparer.OrdinalIgnoreCase)

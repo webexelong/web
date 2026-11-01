@@ -9,6 +9,7 @@ export default function StaffLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
   const { orders, fetchOrders, initRealtime, currentStoreId } = useStore();
   const { logout, user } = useAuthStore();
   const currentStoreName = user?.storeName || user?.brandName || 'Cửa hàng hiện tại';
@@ -49,7 +50,18 @@ export default function StaffLayout() {
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low dark:bg-surface-dim transition-all focus-within:ring-2 ring-primary/20">
             <span className="material-symbols-outlined text-on-surface-variant text-lg">search</span>
-            <input className="bg-transparent border-none focus:ring-0 text-xs text-on-surface-variant w-40 outline-none" placeholder="Tìm đơn hàng..." type="text" />
+            <input 
+              value={staffSearch}
+              onChange={(e) => setStaffSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && staffSearch.trim()) {
+                  navigate(`/staff/orders?search=${encodeURIComponent(staffSearch.trim())}`);
+                }
+              }}
+              className="bg-transparent border-none focus:ring-0 text-xs text-on-surface-variant w-40 outline-none" 
+              placeholder="Tìm đơn hàng..." 
+              type="text" 
+            />
           </div>
           
           {/* Realtime Notification Bell */}

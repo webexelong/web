@@ -225,6 +225,12 @@ namespace WebCafe.Backend.Controllers
                 })
                 .ToDictionaryAsync(x => x.TenantId, x => new { x.Count, x.Gmv });
 
+            var customersPerTenant = await _db.Customers
+                .Where(c => tenantIds.Contains(c.TenantId))
+                .GroupBy(c => c.TenantId)
+                .Select(g => new { TenantId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.TenantId, x => x.Count);
+
             var result = tenants.Select(t =>
             {
                 var tableCount = tablesPerTenant.ContainsKey(t.TenantId) ? tablesPerTenant[t.TenantId] : 0;
@@ -246,11 +252,67 @@ namespace WebCafe.Backend.Controllers
                     StoreCount = t.Stores?.Count ?? 0,
                     TableCount = tableCount,
                     OrderCount = orderData.Count,
-                    TotalGmv = orderData.Gmv
+                    TotalGmv = orderData.Gmv,
+                    CustomerCount = customersPerTenant.ContainsKey(t.TenantId) ? customersPerTenant[t.TenantId] : 0
                 };
             }).ToList();
 
             return Ok(ApiResponse<List<TenantDetailDto>>.Ok(result, "Lấy danh sách quán đối tác thành công."));
+        }
+
+        /// <summary>
+        /// Lấy danh sách khách hàng (customer) trên toàn hệ thống hoặc theo từng quán
+        /// </summary>
+        [HttpGet("customers")]
+        public async Task<ActionResult<ApiResponse<CustomerListResponseDto>>> GetCustomers(
+            [FromQuery] string? search,
+            [FromQuery] int? tenantId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            var query = _db.Customers.AsNoTracking().Include(c => c.Tenant).AsQueryable();
+
+            if (tenantId.HasValue && tenantId.Value > 0)
+            {
+                query = query.Where(c => c.TenantId == tenantId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(c => c.Phone.Contains(s) || (c.Name != null && c.Name.ToLower().Contains(s)) || (c.Tenant != null && c.Tenant.Name.ToLower().Contains(s)));
+            }
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CustomerListItemDto
+                {
+                    CustomerId = c.CustomerId,
+                    TenantId = c.TenantId,
+                    TenantName = c.Tenant != null ? c.Tenant.Name : string.Empty,
+                    Phone = c.Phone,
+                    Name = c.Name,
+                    TotalPoints = c.TotalPoints,
+                    TotalSpent = c.TotalSpent,
+                    VisitCount = c.VisitCount,
+                    CreatedAt = c.CreatedAt,
+                    LastVisitAt = c.LastVisitAt
+                })
+                .ToListAsync();
+
+            return Ok(ApiResponse<CustomerListResponseDto>.Ok(new CustomerListResponseDto
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            }));
         }
 
         /// <summary>
@@ -469,5 +531,98 @@ namespace WebCafe.Backend.Controllers
 
             return Ok(ApiResponse<object>.Ok(new { tenant.TenantId, tenant.Plan, tenant.MaxStores, maxStaff = plan.MaxStaff, maxTablesPerStore = plan.MaxTablesPerStore }, $"Cập nhật gói dịch vụ quán '{tenant.Name}' thành công."));
         }
+
+        /// <summary>
+        /// Lấy danh sách các yêu cầu nâng cấp / đổi gói từ các quán
+        /// </summary>
+        [HttpGet("subscription-requests")]
+        public async Task<ActionResult<ApiResponse<List<SubscriptionUpgradeRequest>>>> GetSubscriptionRequests([FromQuery] string? status)
+        {
+            var query = _db.SubscriptionUpgradeRequests.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(status) && status != "all")
+            {
+                query = query.Where(r => r.Status == status.ToLower());
+            }
+            var list = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+            return Ok(ApiResponse<List<SubscriptionUpgradeRequest>>.Ok(list));
+        }
+
+        /// <summary>
+        /// Super Admin duyệt yêu cầu nâng cấp / đổi gói
+        /// </summary>
+        [HttpPut("subscription-requests/{id:int}/approve")]
+        public async Task<ActionResult<ApiResponse<object>>> ApproveSubscriptionRequest(int id, [FromBody] ApproveUpgradeRequest? request)
+        {
+            var req = await _db.SubscriptionUpgradeRequests.FindAsync(id);
+            if (req == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy yêu cầu nâng cấp."));
+            if (req.Status != "pending") return BadRequest(ApiResponse<object>.Fail("Yêu cầu này đã được xử lý trước đó."));
+
+            var tenant = await _db.Tenants.FindAsync(req.TenantId);
+            if (tenant == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy quán tương ứng."));
+
+            var targetPlan = await _db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Code == req.RequestedPlanCode.ToLower() && p.IsActive);
+            if (targetPlan == null) return BadRequest(ApiResponse<object>.Fail("Gói dịch vụ yêu cầu không tồn tại hoặc tạm ngưng."));
+
+            var subscription = await _db.TenantSubscriptions.Where(s => s.TenantId == req.TenantId && s.Status != "cancelled").OrderByDescending(s => s.CreatedAt).FirstOrDefaultAsync();
+
+            var now = DateTime.UtcNow;
+            tenant.Plan = targetPlan.Code;
+            tenant.MaxStores = targetPlan.MaxStores;
+
+            if (subscription == null)
+            {
+                subscription = new TenantSubscription { TenantId = req.TenantId, PlanId = targetPlan.PlanId, Status = "active", StartsAt = now, CreatedAt = now };
+                _db.TenantSubscriptions.Add(subscription);
+            }
+            else
+            {
+                subscription.PlanId = targetPlan.PlanId;
+                subscription.Status = "active";
+                subscription.CurrentPeriodStart = now;
+                subscription.CurrentPeriodEnd = now.AddMonths(1);
+                subscription.TrialEndsAt = null;
+                subscription.GraceEndsAt = null;
+            }
+
+            req.Status = "approved";
+            req.ProcessedAt = now;
+            req.ProcessedBy = User.Identity?.Name ?? "Super Admin";
+            if (!string.IsNullOrWhiteSpace(request?.AdminNote)) req.AdminNote = request.AdminNote;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.Ok(new { req.RequestId, req.Status, tenant.Plan }, $"Đã duyệt và kích hoạt gói {targetPlan.Name} cho quán '{tenant.Name}'."));
+        }
+
+        /// <summary>
+        /// Super Admin từ chối yêu cầu nâng cấp / đổi gói
+        /// </summary>
+        [HttpPut("subscription-requests/{id:int}/reject")]
+        public async Task<ActionResult<ApiResponse<object>>> RejectSubscriptionRequest(int id, [FromBody] RejectUpgradeRequest? request)
+        {
+            var req = await _db.SubscriptionUpgradeRequests.FindAsync(id);
+            if (req == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy yêu cầu nâng cấp."));
+            if (req.Status != "pending") return BadRequest(ApiResponse<object>.Fail("Yêu cầu này đã được xử lý trước đó."));
+
+            var now = DateTime.UtcNow;
+            req.Status = "rejected";
+            req.ProcessedAt = now;
+            req.ProcessedBy = User.Identity?.Name ?? "Super Admin";
+            req.AdminNote = request?.Reason ?? "Quản trị viên từ chối yêu cầu.";
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.Ok(new { req.RequestId, req.Status }, "Đã từ chối yêu cầu đổi gói."));
+        }
+    }
+
+    public class ApproveUpgradeRequest
+    {
+        public string? AdminNote { get; set; }
+    }
+
+    public class RejectUpgradeRequest
+    {
+        public string? Reason { get; set; }
     }
 }

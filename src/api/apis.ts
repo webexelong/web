@@ -13,6 +13,9 @@ import type {
   OwnerSignupResponse,
   MySubscriptionDto,
   SubscriptionPlanDto,
+  SubscriptionUpgradeRequestDto,
+  CustomerListItemDto,
+  CustomerListResponseDto,
   SystemNotificationDto,
   StaffDto,
   CreateStaffRequest,
@@ -250,7 +253,24 @@ export const meApi = {
     const res = await apiClient.get<ApiResponse<SubscriptionPlanDto[]>>('/me/subscription/plans');
     return res.data.data ?? [];
   },
-  upgradeSubscription: async (planCode: string) => {
+  upgradeSubscription: async (payload: { planCode: string; phone?: string; note?: string } | string) => {
+    const body = typeof payload === 'string' ? { planCode: payload } : payload;
+    const res = await apiClient.post<ApiResponse<any>>('/me/subscription/upgrade', body);
+    return res.data;
+  },
+  getMyUpgradeRequest: async () => {
+    const res = await apiClient.get<ApiResponse<SubscriptionUpgradeRequestDto | null>>('/me/subscription/my-request');
+    return res.data.data;
+  },
+  cancelMyUpgradeRequest: async () => {
+    const res = await apiClient.delete<ApiResponse<any>>('/me/subscription/my-request');
+    return res.data;
+  },
+  getCustomers: async (params?: { search?: string; page?: number; pageSize?: number }) => {
+    const res = await apiClient.get<ApiResponse<CustomerListResponseDto>>('/me/customers', { params });
+    return res.data.data;
+  },
+  _legacyUpgrade: async (planCode: string) => {
     const res = await apiClient.post<ApiResponse<MySubscriptionDto>>('/me/subscription/upgrade', { planCode });
     return res.data.data;
   },
@@ -471,6 +491,22 @@ export const systemAdminApi = {
   },
   getPlans: async () => {
     const res = await apiClient.get<ApiResponse<any[]>>('/system/plans');
+    return res.data.data;
+  },
+  getSubscriptionRequests: async (status?: string) => {
+    const res = await apiClient.get<ApiResponse<SubscriptionUpgradeRequestDto[]>>('/system/subscription-requests', { params: { status } });
+    return res.data.data ?? [];
+  },
+  approveSubscriptionRequest: async (id: number, adminNote?: string) => {
+    const res = await apiClient.put<ApiResponse<any>>(`/system/subscription-requests/${id}/approve`, { adminNote });
+    return res.data;
+  },
+  rejectSubscriptionRequest: async (id: number, reason?: string) => {
+    const res = await apiClient.put<ApiResponse<any>>(`/system/subscription-requests/${id}/reject`, { reason });
+    return res.data;
+  },
+  getCustomers: async (params?: { search?: string; tenantId?: number; page?: number; pageSize?: number }) => {
+    const res = await apiClient.get<ApiResponse<CustomerListResponseDto>>('/system/customers', { params });
     return res.data.data;
   },
   updatePlan: async (code: string, payload: any) => {

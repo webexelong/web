@@ -230,6 +230,45 @@ export interface SubscriptionPlanDto {
   features: Record<string, boolean>;
 }
 
+export interface SubscriptionUpgradeRequestDto {
+  requestId: number;
+  tenantId: number;
+  tenantName: string;
+  ownerName: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  currentPlanCode: string;
+  requestedPlanCode: string;
+  monthlyPrice: number;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  note?: string | null;
+  adminNote?: string | null;
+  createdAt: string;
+  processedAt?: string | null;
+  processedBy?: string | null;
+}
+
+export interface CustomerListItemDto {
+  customerId: number;
+  tenantId: number;
+  tenantName: string;
+  phone: string;
+  name?: string | null;
+  totalPoints: number;
+  totalSpent: number;
+  visitCount: number;
+  createdAt: string;
+  lastVisitAt?: string | null;
+}
+
+export interface CustomerListResponseDto {
+  items: CustomerListItemDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface SystemNotificationDto {
   notificationId: number;
   type: string;
@@ -743,6 +782,7 @@ export interface PlatformStatsDto {
   totalTables: number;
   totalOrders: number;
   totalGmv: number;
+  customerCount?: number;
   monthlySubscriptionRevenue: number;
   dailyRevenue?: SystemDailyRevenueDto[];
 }
@@ -763,6 +803,7 @@ export interface TenantDetailDto {
   tableCount: number;
   orderCount: number;
   totalGmv: number;
+  customerCount?: number;
 }
 
 export interface CreateTenantDto {

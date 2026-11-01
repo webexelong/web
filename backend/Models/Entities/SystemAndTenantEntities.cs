@@ -153,6 +153,25 @@ namespace WebCafe.Backend.Models.Entities
         public TenantSubscription? Subscription { get; set; }
     }
 
+    public class SubscriptionUpgradeRequest
+    {
+        [Key] public int RequestId { get; set; }
+        public int TenantId { get; set; }
+        [Required, MaxLength(150)] public string TenantName { get; set; } = string.Empty;
+        [Required, MaxLength(100)] public string OwnerName { get; set; } = string.Empty;
+        [Required, MaxLength(30)] public string OwnerPhone { get; set; } = string.Empty;
+        [Required, MaxLength(150)] public string OwnerEmail { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string CurrentPlanCode { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string RequestedPlanCode { get; set; } = string.Empty;
+        [Column(TypeName = "decimal(12,0)")] public decimal MonthlyPrice { get; set; }
+        [Required, MaxLength(30)] public string Status { get; set; } = "pending"; // pending, approved, rejected
+        [MaxLength(500)] public string? Note { get; set; }
+        [MaxLength(500)] public string? AdminNote { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? ProcessedAt { get; set; }
+        [MaxLength(100)] public string? ProcessedBy { get; set; }
+    }
+
     public class Store
     {
         [Key]

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WebCafe.Backend.Models.Entities;
 
 namespace WebCafe.Backend.Infrastructure.Data
@@ -17,6 +17,7 @@ namespace WebCafe.Backend.Infrastructure.Data
         public DbSet<SubscriptionPlanFeature> SubscriptionPlanFeatures => Set<SubscriptionPlanFeature>();
         public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
         public DbSet<SubscriptionBillingRecord> SubscriptionBillingRecords => Set<SubscriptionBillingRecord>();
+        public DbSet<SubscriptionUpgradeRequest> SubscriptionUpgradeRequests => Set<SubscriptionUpgradeRequest>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
