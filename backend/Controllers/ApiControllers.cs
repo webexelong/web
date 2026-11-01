@@ -51,7 +51,6 @@ namespace WebCafe.Backend.Controllers
                 // Customer login cũng phải xác thực mật khẩu và cửa hàng đã chọn.
                 try
                 {
-                    if (!request.StoreId.HasValue) throw new AppException("Vui lòng chọn cửa hàng để đăng nhập.");
                     var customerRes = await _authService.LoginCustomerAsync(request);
                     return Ok(ApiResponse<LoginResponse>.Ok(customerRes, "Đăng nhập khách hàng thành công."));
                 }
