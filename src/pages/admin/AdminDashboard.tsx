@@ -119,7 +119,75 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {subscription && <section className="mb-6 rounded-2xl border border-primary/15 bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Gói dịch vụ hiện tại</p><h3 className="mt-1 text-xl font-black text-primary uppercase">{subscription.plan}</h3><p className="mt-1 text-sm text-on-surface-variant">{subscription.status === 'suspended' ? 'Gói đã hết hạn, một số tính năng đang bị khóa.' : subscription.daysRemaining != null ? `Còn ${subscription.daysRemaining} ngày dùng thử.` : 'Đang hoạt động.'}</p></div><div className="flex flex-wrap gap-2 text-xs"><span className="rounded-lg bg-surface-container-low px-3 py-2">Cửa hàng: {subscription.storesUsed ?? 0}/{subscription.maxStores}</span><span className="rounded-lg bg-surface-container-low px-3 py-2">Nhân viên: {subscription.staffUsed ?? 0}/{subscription.maxStaff}</span><Link to="/admin/subscription" className="rounded-lg bg-primary px-4 py-2 font-bold text-white">Xem gói & nâng cấp</Link></div></div></section>}
+      {subscription && (
+        <section className={`mb-6 rounded-3xl p-5 shadow-sm border ${
+          subscription.status === 'trialing' 
+            ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200' 
+            : subscription.plan === 'free'
+              ? 'bg-stone-50 border-stone-200'
+              : 'bg-white border-primary/15'
+        }`}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                subscription.status === 'trialing' 
+                  ? 'bg-amber-500 text-white shadow-md' 
+                  : subscription.plan === 'free'
+                    ? 'bg-stone-200 text-stone-700'
+                    : 'bg-primary text-white shadow-md'
+              }`}>
+                <span className="material-symbols-outlined text-2xl">
+                  {subscription.status === 'trialing' ? 'hourglass_top' : 'workspace_premium'}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+                    Gói dịch vụ hiện tại:
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase ${
+                    subscription.status === 'trialing'
+                      ? 'bg-amber-200 text-amber-900 border border-amber-300'
+                      : subscription.plan === 'free'
+                        ? 'bg-stone-200 text-stone-800'
+                        : 'bg-primary/10 text-primary'
+                  }`}>
+                    {subscription.plan} {subscription.status === 'trialing' ? '(Dùng thử 14 ngày)' : ''}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm font-medium text-on-surface">
+                  {subscription.status === 'trialing' && subscription.daysRemaining != null
+                    ? `Bạn còn ${subscription.daysRemaining} ngày trải nghiệm miễn phí toàn bộ tính năng cao cấp.`
+                    : subscription.plan === 'free'
+                      ? `Gói Miễn Phí hỗ trợ tối đa 5 bàn. Nâng cấp gói để mở thêm bàn, quản lý kho BOM và báo cáo AI.`
+                      : 'Gói cước đang hoạt động bình thường.'}
+                </p>
+                {subscription.plan === 'free' && (subscription.tablesUsed ?? 0) > 5 && (
+                  <p className="text-xs text-red-600 font-bold mt-1">
+                    ⚠️ Quán đang có {subscription.tablesUsed} bàn, vượt hạn mức 5 bàn của gói Free.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-xl bg-white/80 border border-outline-variant/20 px-3 py-2 font-semibold">
+                Bàn: {subscription.tablesUsed ?? 0}/{subscription.maxTablesPerStore ?? '∞'}
+              </span>
+              <span className="rounded-xl bg-white/80 border border-outline-variant/20 px-3 py-2 font-semibold">
+                Nhân viên: {subscription.staffUsed ?? 0}/{subscription.maxStaff}
+              </span>
+              <Link 
+                to="/admin/subscription" 
+                className="rounded-xl bg-primary hover:bg-primary-container px-4 py-2.5 font-bold text-white transition active:scale-95 shadow-xs flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">upgrade</span>
+                <span>Yêu Cầu Nâng Cấp</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Critical Stock Alert Banner if any */}
       {d?.lowStockAlerts && d.lowStockAlerts.length > 0 && (

@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { meApi } from '../../api/apis';
+import type { MySubscriptionDto } from '../../types/apiTypes';
 import { apiClient } from '../../api/apiClient';
 import { useNotification } from '../../components/NotificationProvider';
 import QRCode from 'qrcode';
@@ -20,12 +23,14 @@ interface TableData {
 
 export default function TableManagement() {
   const { confirm } = useNotification();
+  const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const storeId = user?.storeId;
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [error, setError] = useState('');
+  const [subscription, setSubscription] = useState<MySubscriptionDto | null>(null);
 
   // Print modal state
   const [selectedPrintTable, setSelectedPrintTable] = useState<TableQrPrintItem | null>(null);
@@ -40,7 +45,10 @@ export default function TableManagement() {
   });
 
   useEffect(() => {
-    if (storeId) loadTables();
+    if (storeId) {
+      loadTables();
+      meApi.getSubscription().then(setSubscription).catch(() => setSubscription(null));
+    }
   }, [storeId]);
 
   const loadTables = async () => {
@@ -225,7 +233,19 @@ export default function TableManagement() {
           {/* Nút Thêm Bàn Mới */}
           <button 
             type="button"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              if (subscription?.plan === 'free' && tables.length >= (subscription.maxTablesPerStore || 5)) {
+                confirm({
+                  tone: 'info',
+                  title: 'Đạt giới hạn gói Free',
+                  message: 'Gói Miễn Phí hỗ trợ tối đa 5 bàn. Vui lòng gửi yêu cầu nâng cấp gói để thêm không giới hạn bàn phục vụ!',
+                  confirmText: 'Xem các gói dịch vụ',
+                  onConfirm: () => navigate('/admin/subscription')
+                });
+                return;
+              }
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-label-md text-xs sm:text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
@@ -233,6 +253,33 @@ export default function TableManagement() {
           </button>
         </div>
       </section>
+
+      {/* Gói Free Limit Alert */}
+      {subscription?.plan === 'free' && tables.length >= (subscription.maxTablesPerStore || 5) && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-amber-600 text-2xl">info</span>
+            <div>
+              <p className="font-bold text-sm">
+                {tables.length > (subscription.maxTablesPerStore || 5)
+                  ? `Quán đang có ${tables.length} bàn, vượt hạn mức 5 bàn của gói Miễn Phí.`
+                  : 'Quán đã đạt hạn mức tối đa 5 bàn của gói Miễn Phí.'}
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                {tables.length > (subscription.maxTablesPerStore || 5)
+                  ? 'Chỉ 5 bàn đầu tiên được phục vụ nhận đơn qua QR. Nâng cấp gói để mở khóa hoạt động toàn bộ các bàn.'
+                  : 'Để tạo thêm bàn mới và mở khóa các tính năng chuyên sâu, vui lòng gửi yêu cầu nâng cấp gói.'}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/admin/subscription"
+            className="px-4 py-2 bg-[#69452f] hover:bg-[#553724] text-white rounded-xl text-xs font-bold transition whitespace-nowrap self-start sm:self-auto shadow-xs"
+          >
+            Yêu Cầu Nâng Cấp
+          </Link>
+        </div>
+      )}
 
       {/* Error Message */}
       {error && (

@@ -230,6 +230,24 @@ export interface SubscriptionPlanDto {
   features: Record<string, boolean>;
 }
 
+export interface SubscriptionUpgradeRequestDto {
+  requestId: number;
+  tenantId: number;
+  tenantName: string;
+  ownerName: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  currentPlanCode: string;
+  requestedPlanCode: string;
+  monthlyPrice: number;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  note?: string | null;
+  adminNote?: string | null;
+  createdAt: string;
+  processedAt?: string | null;
+  processedBy?: string | null;
+}
+
 export interface SystemNotificationDto {
   notificationId: number;
   type: string;

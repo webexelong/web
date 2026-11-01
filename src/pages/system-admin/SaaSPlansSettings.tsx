@@ -141,7 +141,7 @@ export default function SaaSPlansSettings() {
     setEditMaxStores(plan.maxStores);
     setEditMaxStaff(plan.id === 'basic' ? 5 : plan.id === 'premium' ? 20 : 50);
     setEditMaxTables(plan.maxTablesPerStore ?? 100);
-    setEditFeatures(Object.fromEntries(FEATURE_OPTIONS.map(([code]) => [code, plan.id !== 'basic'])));
+    setEditFeatures(Object.fromEntries(FEATURE_OPTIONS.map(([code]) => [code, Array.isArray(plan.features) ? plan.features.includes(code) : (plan.id !== 'basic')])));
   };
 
   const handleSaveEdit = async (planId: string) => {
@@ -150,7 +150,9 @@ export default function SaaSPlansSettings() {
         return {
           ...p,
           priceMonth: Number(editPrice) || p.priceMonth,
-          maxStores: Number(editMaxStores) || p.maxStores
+          maxStores: Number(editMaxStores) || p.maxStores,
+          maxTablesPerStore: Number(editMaxTables) || p.maxTablesPerStore,
+          features: Object.entries(editFeatures).filter(([, enabled]) => enabled).map(([code]) => code)
         };
       }
       return p;

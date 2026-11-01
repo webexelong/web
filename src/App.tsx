@@ -41,6 +41,7 @@ const VoucherManagement = lazy(() => import('./pages/admin/VoucherManagement'));
 const SystemAdminDashboard = lazy(() => import('./pages/system-admin/SystemAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/system-admin/TenantManagement'));
 const SaaSPlansSettings = lazy(() => import('./pages/system-admin/SaaSPlansSettings'));
+const UpgradeRequestsManagement = lazy(() => import('./pages/system-admin/UpgradeRequestsManagement'));
 import AnalyticsTracker from './components/AnalyticsTracker';
 import SubscriptionFeatureGate from './components/SubscriptionFeatureGate';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -129,6 +130,7 @@ function App() {
         )}>
           <Route index element={<SystemAdminDashboard />} />
           <Route path="tenants" element={<TenantManagement />} />
+          <Route path="upgrade-requests" element={<UpgradeRequestsManagement />} />
           <Route path="plans" element={<SaaSPlansSettings />} />
         </Route>
         </Routes>

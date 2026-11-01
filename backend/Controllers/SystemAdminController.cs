@@ -469,5 +469,98 @@ namespace WebCafe.Backend.Controllers
 
             return Ok(ApiResponse<object>.Ok(new { tenant.TenantId, tenant.Plan, tenant.MaxStores, maxStaff = plan.MaxStaff, maxTablesPerStore = plan.MaxTablesPerStore }, $"Cập nhật gói dịch vụ quán '{tenant.Name}' thành công."));
         }
+
+        /// <summary>
+        /// Lấy danh sách các yêu cầu nâng cấp / đổi gói từ các quán
+        /// </summary>
+        [HttpGet("subscription-requests")]
+        public async Task<ActionResult<ApiResponse<List<SubscriptionUpgradeRequest>>>> GetSubscriptionRequests([FromQuery] string? status)
+        {
+            var query = _db.SubscriptionUpgradeRequests.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(status) && status != "all")
+            {
+                query = query.Where(r => r.Status == status.ToLower());
+            }
+            var list = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+            return Ok(ApiResponse<List<SubscriptionUpgradeRequest>>.Ok(list));
+        }
+
+        /// <summary>
+        /// Super Admin duyệt yêu cầu nâng cấp / đổi gói
+        /// </summary>
+        [HttpPut("subscription-requests/{id:int}/approve")]
+        public async Task<ActionResult<ApiResponse<object>>> ApproveSubscriptionRequest(int id, [FromBody] ApproveUpgradeRequest? request)
+        {
+            var req = await _db.SubscriptionUpgradeRequests.FindAsync(id);
+            if (req == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy yêu cầu nâng cấp."));
+            if (req.Status != "pending") return BadRequest(ApiResponse<object>.Fail("Yêu cầu này đã được xử lý trước đó."));
+
+            var tenant = await _db.Tenants.FindAsync(req.TenantId);
+            if (tenant == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy quán tương ứng."));
+
+            var targetPlan = await _db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Code == req.RequestedPlanCode.ToLower() && p.IsActive);
+            if (targetPlan == null) return BadRequest(ApiResponse<object>.Fail("Gói dịch vụ yêu cầu không tồn tại hoặc tạm ngưng."));
+
+            var subscription = await _db.TenantSubscriptions.Where(s => s.TenantId == req.TenantId && s.Status != "cancelled").OrderByDescending(s => s.CreatedAt).FirstOrDefaultAsync();
+
+            var now = DateTime.UtcNow;
+            tenant.Plan = targetPlan.Code;
+            tenant.MaxStores = targetPlan.MaxStores;
+
+            if (subscription == null)
+            {
+                subscription = new TenantSubscription { TenantId = req.TenantId, PlanId = targetPlan.PlanId, Status = "active", StartsAt = now, CreatedAt = now };
+                _db.TenantSubscriptions.Add(subscription);
+            }
+            else
+            {
+                subscription.PlanId = targetPlan.PlanId;
+                subscription.Status = "active";
+                subscription.CurrentPeriodStart = now;
+                subscription.CurrentPeriodEnd = now.AddMonths(1);
+                subscription.TrialEndsAt = null;
+                subscription.GraceEndsAt = null;
+            }
+
+            req.Status = "approved";
+            req.ProcessedAt = now;
+            req.ProcessedBy = User.Identity?.Name ?? "Super Admin";
+            if (!string.IsNullOrWhiteSpace(request?.AdminNote)) req.AdminNote = request.AdminNote;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.Ok(new { req.RequestId, req.Status, tenant.Plan }, $"Đã duyệt và kích hoạt gói {targetPlan.Name} cho quán '{tenant.Name}'."));
+        }
+
+        /// <summary>
+        /// Super Admin từ chối yêu cầu nâng cấp / đổi gói
+        /// </summary>
+        [HttpPut("subscription-requests/{id:int}/reject")]
+        public async Task<ActionResult<ApiResponse<object>>> RejectSubscriptionRequest(int id, [FromBody] RejectUpgradeRequest? request)
+        {
+            var req = await _db.SubscriptionUpgradeRequests.FindAsync(id);
+            if (req == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy yêu cầu nâng cấp."));
+            if (req.Status != "pending") return BadRequest(ApiResponse<object>.Fail("Yêu cầu này đã được xử lý trước đó."));
+
+            var now = DateTime.UtcNow;
+            req.Status = "rejected";
+            req.ProcessedAt = now;
+            req.ProcessedBy = User.Identity?.Name ?? "Super Admin";
+            req.AdminNote = request?.Reason ?? "Quản trị viên từ chối yêu cầu.";
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.Ok(new { req.RequestId, req.Status }, "Đã từ chối yêu cầu đổi gói."));
+        }
+    }
+
+    public class ApproveUpgradeRequest
+    {
+        public string? AdminNote { get; set; }
+    }
+
+    public class RejectUpgradeRequest
+    {
+        public string? Reason { get; set; }
     }
 }
