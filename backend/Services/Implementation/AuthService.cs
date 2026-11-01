@@ -161,6 +161,10 @@ namespace WebCafe.Backend.Services.Implementation
             {
                 store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.StoreId == request.StoreId && s.IsActive);
             }
+            if (store == null)
+            {
+                store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.IsActive);
+            }
 
             Customer? customer = null;
             if (store != null)
@@ -173,7 +177,48 @@ namespace WebCafe.Backend.Services.Implementation
             {
                 customer = await _db.Customers
                     .Include(c => c.Tenant)
+                    .OrderByDescending(c => c.LastVisitAt)
                     .FirstOrDefaultAsync(c => c.Phone == phone);
+            }
+
+            // Universal Account: Nếu khách chưa có hồ sơ tại quán này (store.TenantId), tìm tài khoản gốc trên toàn hệ thống
+            if (customer == null)
+            {
+                var existingCustomer = await _db.Customers
+                    .Include(c => c.Tenant)
+                    .OrderByDescending(c => c.LastVisitAt)
+                    .FirstOrDefaultAsync(c => c.Phone == phone && !string.IsNullOrWhiteSpace(c.PasswordHash));
+
+                if (existingCustomer != null)
+                {
+                    var isPasswordValid = false;
+                    try { isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, existingCustomer.PasswordHash); }
+                    catch (BCrypt.Net.SaltParseException) { isPasswordValid = false; }
+
+                    if (isPasswordValid)
+                    {
+                        var targetTenantId = store != null ? store.TenantId : existingCustomer.TenantId;
+                        var targetTenant = await _db.Tenants.FirstOrDefaultAsync(t => t.TenantId == targetTenantId);
+
+                        // Tự động tạo hồ sơ hội viên cho quán này (Tracking điểm tích lũy & chi tiêu riêng biệt)
+                        customer = new Customer
+                        {
+                            TenantId = targetTenantId,
+                            Phone = phone,
+                            PasswordHash = existingCustomer.PasswordHash, // Đồng bộ mật khẩu
+                            Name = existingCustomer.Name ?? "Khách hàng",
+                            TotalPoints = 0, // Điểm riêng của quán mới
+                            TotalSpent = 0,  // Chi tiêu riêng của quán mới
+                            VisitCount = 0,
+                            CreatedAt = DateTime.UtcNow,
+                            LastVisitAt = DateTime.UtcNow
+                        };
+                        _db.Customers.Add(customer);
+                        await _db.SaveChangesAsync();
+
+                        customer.Tenant = targetTenant;
+                    }
+                }
             }
 
             var validPassword = false;
@@ -189,6 +234,20 @@ namespace WebCafe.Backend.Services.Implementation
 
             customer.VisitCount += 1;
             customer.LastVisitAt = DateTime.UtcNow;
+
+            // Đồng bộ mật khẩu và tên cho các hồ sơ khác của cùng số điện thoại nếu có
+            var otherProfiles = await _db.Customers
+                .Where(c => c.Phone == phone && c.CustomerId != customer.CustomerId && (c.PasswordHash != customer.PasswordHash || c.Name != customer.Name))
+                .ToListAsync();
+            if (otherProfiles.Count > 0)
+            {
+                foreach (var op in otherProfiles)
+                {
+                    op.PasswordHash = customer.PasswordHash;
+                    if (!string.IsNullOrWhiteSpace(customer.Name)) op.Name = customer.Name;
+                }
+            }
+
             await _db.SaveChangesAsync();
 
             var jwtKey = GetRequiredJwtSetting("SecretKey");
@@ -244,24 +303,63 @@ namespace WebCafe.Backend.Services.Implementation
 
             if (existingByPhone != null)
             {
-                throw new AppException("Số điện thoại này đã được đăng ký tài khoản. Vui lòng đăng nhập.");
+                throw new AppException("Số điện thoại này đã được đăng ký tài khoản tại quán. Vui lòng đăng nhập.");
             }
 
-            var customer = new Customer
-            {
-                TenantId = store.TenantId,
-                Phone = phone,
-                PasswordHash = Common.Helper.SecurityHelper.HashPassword(request.Password),
-                Name = request.FullName.Trim(),
-                TotalPoints = 0,
-                TotalSpent = 0,
-                VisitCount = 1,
-                CreatedAt = DateTime.UtcNow,
-                LastVisitAt = DateTime.UtcNow
-            };
+            // Kiểm tra xem số điện thoại này đã có tài khoản trên toàn hệ thống chưa
+            var existingGlobal = await _db.Customers
+                .Include(c => c.Tenant)
+                .OrderByDescending(c => c.LastVisitAt)
+                .FirstOrDefaultAsync(c => c.Phone == phone && !string.IsNullOrWhiteSpace(c.PasswordHash));
 
-            _db.Customers.Add(customer);
-            await _db.SaveChangesAsync();
+            Customer customer;
+            if (existingGlobal != null)
+            {
+                // Kiểm tra nếu nhập đúng mật khẩu của tài khoản hiện có -> Tự động kích hoạt hội viên tại quán mới luôn!
+                bool passwordMatches = false;
+                try { passwordMatches = BCrypt.Net.BCrypt.Verify(request.Password, existingGlobal.PasswordHash); }
+                catch { passwordMatches = false; }
+
+                if (passwordMatches)
+                {
+                    customer = new Customer
+                    {
+                        TenantId = store.TenantId,
+                        Phone = phone,
+                        PasswordHash = existingGlobal.PasswordHash,
+                        Name = !string.IsNullOrWhiteSpace(request.FullName) ? request.FullName.Trim() : (existingGlobal.Name ?? "Khách hàng"),
+                        TotalPoints = 0, // Điểm riêng của quán mới
+                        TotalSpent = 0,  // Chi tiêu riêng của quán mới
+                        VisitCount = 1,
+                        CreatedAt = DateTime.UtcNow,
+                        LastVisitAt = DateTime.UtcNow
+                    };
+                    _db.Customers.Add(customer);
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    throw new AppException("Số điện thoại này đã có tài khoản trên hệ thống AI-SMARTSERVE. Vui lòng chọn 'Đăng nhập' bằng mật khẩu của bạn để sử dụng tại quán này.");
+                }
+            }
+            else
+            {
+                customer = new Customer
+                {
+                    TenantId = store.TenantId,
+                    Phone = phone,
+                    PasswordHash = Common.Helper.SecurityHelper.HashPassword(request.Password),
+                    Name = request.FullName.Trim(),
+                    TotalPoints = 0,
+                    TotalSpent = 0,
+                    VisitCount = 1,
+                    CreatedAt = DateTime.UtcNow,
+                    LastVisitAt = DateTime.UtcNow
+                };
+
+                _db.Customers.Add(customer);
+                await _db.SaveChangesAsync();
+            }
 
             // Tự động tạo Token để đăng nhập ngay lập tức (Auto-login)
             var jwtKey = GetRequiredJwtSetting("SecretKey");
