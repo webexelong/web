@@ -12,6 +12,7 @@ export default function SystemAdminLayout() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotificationDto[]>([]);
   const { user, logout } = useAuthStore();
+  const [headerSearch, setHeaderSearch] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +65,7 @@ export default function SystemAdminLayout() {
   const navItems = [
     { path: '/system-admin', icon: 'dashboard', label: 'Bảng Điều Khiển' },
     { path: '/system-admin/tenants', icon: 'storefront', label: 'Quán Cafe Đối Tác' },
+    { path: '/system-admin/customers', icon: 'group', label: 'Khách Hàng Toàn Sàn' },
     { path: '/system-admin/upgrade-requests', icon: 'published_with_changes', label: 'Yêu Cầu Nâng Cấp' },
     { path: '/system-admin/plans', icon: 'tune', label: 'Gói Cước & Cấu Hình' },
   ];
@@ -155,6 +157,13 @@ export default function SystemAdminLayout() {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
               <input 
                 className="bg-surface-container-low dark:bg-[#251D19] border border-outline-variant/30 dark:border-white/10 rounded-full pl-10 pr-4 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant/50 dark:placeholder:text-stone-500 text-on-surface dark:text-[#F3EDE6]" 
+                value={headerSearch}
+                onChange={(e) => setHeaderSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && headerSearch.trim()) {
+                    navigate(`/system-admin/tenants?search=${encodeURIComponent(headerSearch.trim())}`);
+                  }
+                }}
                 placeholder="Tìm kiếm quán cafe, đối tác, SĐT..." 
                 type="text" 
               />

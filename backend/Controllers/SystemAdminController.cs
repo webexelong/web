@@ -225,6 +225,12 @@ namespace WebCafe.Backend.Controllers
                 })
                 .ToDictionaryAsync(x => x.TenantId, x => new { x.Count, x.Gmv });
 
+            var customersPerTenant = await _db.Customers
+                .Where(c => tenantIds.Contains(c.TenantId))
+                .GroupBy(c => c.TenantId)
+                .Select(g => new { TenantId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.TenantId, x => x.Count);
+
             var result = tenants.Select(t =>
             {
                 var tableCount = tablesPerTenant.ContainsKey(t.TenantId) ? tablesPerTenant[t.TenantId] : 0;
@@ -246,11 +252,67 @@ namespace WebCafe.Backend.Controllers
                     StoreCount = t.Stores?.Count ?? 0,
                     TableCount = tableCount,
                     OrderCount = orderData.Count,
-                    TotalGmv = orderData.Gmv
+                    TotalGmv = orderData.Gmv,
+                    CustomerCount = customersPerTenant.ContainsKey(t.TenantId) ? customersPerTenant[t.TenantId] : 0
                 };
             }).ToList();
 
             return Ok(ApiResponse<List<TenantDetailDto>>.Ok(result, "Lấy danh sách quán đối tác thành công."));
+        }
+
+        /// <summary>
+        /// Lấy danh sách khách hàng (customer) trên toàn hệ thống hoặc theo từng quán
+        /// </summary>
+        [HttpGet("customers")]
+        public async Task<ActionResult<ApiResponse<CustomerListResponseDto>>> GetCustomers(
+            [FromQuery] string? search,
+            [FromQuery] int? tenantId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            var query = _db.Customers.AsNoTracking().Include(c => c.Tenant).AsQueryable();
+
+            if (tenantId.HasValue && tenantId.Value > 0)
+            {
+                query = query.Where(c => c.TenantId == tenantId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(c => c.Phone.Contains(s) || (c.Name != null && c.Name.ToLower().Contains(s)) || (c.Tenant != null && c.Tenant.Name.ToLower().Contains(s)));
+            }
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CustomerListItemDto
+                {
+                    CustomerId = c.CustomerId,
+                    TenantId = c.TenantId,
+                    TenantName = c.Tenant != null ? c.Tenant.Name : string.Empty,
+                    Phone = c.Phone,
+                    Name = c.Name,
+                    TotalPoints = c.TotalPoints,
+                    TotalSpent = c.TotalSpent,
+                    VisitCount = c.VisitCount,
+                    CreatedAt = c.CreatedAt,
+                    LastVisitAt = c.LastVisitAt
+                })
+                .ToListAsync();
+
+            return Ok(ApiResponse<CustomerListResponseDto>.Ok(new CustomerListResponseDto
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            }));
         }
 
         /// <summary>

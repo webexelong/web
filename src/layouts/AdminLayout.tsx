@@ -15,6 +15,7 @@ export default function AdminLayout() {
   const [stores, setStores] = useState<Array<{ storeId: number; name: string }>>([]);
   const [subscription, setSubscription] = useState<{ plan: string; status: string; daysRemaining?: number | null } | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<number>(user?.storeId ?? 0);
+  const [headerSearch, setHeaderSearch] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -75,6 +76,7 @@ export default function AdminLayout() {
     { path: '/admin/inventory', icon: 'inventory_2', label: 'Kho Nguyên Liệu' },
     { path: '/admin/analytics', icon: 'analytics', label: 'Báo Cáo & AI' },
     { path: '/admin/staff', icon: 'badge', label: 'Nhân Viên' },
+    { path: '/admin/customers', icon: 'group', label: 'Khách Hàng' },
     { path: '/admin/settings', icon: 'payments', label: 'Cổng Thanh Toán' },
     { path: '/admin/subscription', icon: 'workspace_premium', label: 'Gói Dịch Vụ' },
   ];
@@ -158,7 +160,18 @@ export default function AdminLayout() {
             </button>
             <div className="relative hidden sm:block">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
-              <input className="bg-surface-container-low dark:bg-[#251D19] border border-outline-variant/30 dark:border-white/10 rounded-full pl-10 pr-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant/50 dark:placeholder:text-stone-500 text-on-surface dark:text-[#F3EDE6]" placeholder="Tìm kiếm đơn hàng, nhân sự..." type="text" />
+              <input 
+                value={headerSearch}
+                onChange={(e) => setHeaderSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && headerSearch.trim()) {
+                    navigate(`/admin/customers?search=${encodeURIComponent(headerSearch.trim())}`);
+                  }
+                }}
+                className="bg-surface-container-low dark:bg-[#251D19] border border-outline-variant/30 dark:border-white/10 rounded-full pl-10 pr-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant/50 dark:placeholder:text-stone-500 text-on-surface dark:text-[#F3EDE6]" 
+                placeholder="Tìm khách hàng, số điện thoại..." 
+                type="text" 
+              />
             </div>
           </div>
           

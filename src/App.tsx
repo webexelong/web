@@ -37,6 +37,8 @@ const StaffManagement = lazy(() => import('./pages/admin/StaffManagement'));
 const PaymentSettings = lazy(() => import('./pages/admin/PaymentSettings'));
 const SubscriptionManagement = lazy(() => import('./pages/admin/SubscriptionManagement'));
 const VoucherManagement = lazy(() => import('./pages/admin/VoucherManagement'));
+const CustomerManagement = lazy(() => import('./pages/admin/CustomerManagement'));
+const AllCustomersManagement = lazy(() => import('./pages/system-admin/AllCustomersManagement'));
 
 const SystemAdminDashboard = lazy(() => import('./pages/system-admin/SystemAdminDashboard'));
 const TenantManagement = lazy(() => import('./pages/system-admin/TenantManagement'));
@@ -117,6 +119,7 @@ function App() {
           <Route path="inventory" element={<SubscriptionFeatureGate feature="inventory" requiredPlan="Premium"><InventoryManagement /></SubscriptionFeatureGate>} />
           <Route path="tables" element={<TableManagement />} />
           <Route path="staff" element={<StaffManagement />} />
+          <Route path="customers" element={<CustomerManagement />} />
           <Route path="settings" element={<PaymentSettings />} />
           <Route path="subscription" element={<SubscriptionManagement />} />
           <Route path="payments" element={<Navigate to="/admin/settings" replace />} />
@@ -130,6 +133,7 @@ function App() {
         )}>
           <Route index element={<SystemAdminDashboard />} />
           <Route path="tenants" element={<TenantManagement />} />
+          <Route path="customers" element={<AllCustomersManagement />} />
           <Route path="upgrade-requests" element={<UpgradeRequestsManagement />} />
           <Route path="plans" element={<SaaSPlansSettings />} />
         </Route>

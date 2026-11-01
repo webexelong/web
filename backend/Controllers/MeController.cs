@@ -38,6 +38,55 @@ public class MeController : ControllerBase
         return Ok(ApiResponse<List<MyStoreDto>>.Ok(stores));
     }
 
+    [HttpGet("customers")]
+    [Authorize(Policy = AppPolicies.TenantAdminAccess)]
+    public async Task<ActionResult<ApiResponse<CustomerListResponseDto>>> GetMyCustomers(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        if (!_currentUser.TenantId.HasValue) return Forbid();
+        var tenantId = _currentUser.TenantId.Value;
+        if (page < 1) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+        var query = _db.Customers.AsNoTracking().Where(c => c.TenantId == tenantId);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(c => c.Phone.Contains(s) || (c.Name != null && c.Name.ToLower().Contains(s)));
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new CustomerListItemDto
+            {
+                CustomerId = c.CustomerId,
+                TenantId = c.TenantId,
+                TenantName = string.Empty,
+                Phone = c.Phone,
+                Name = c.Name,
+                TotalPoints = c.TotalPoints,
+                TotalSpent = c.TotalSpent,
+                VisitCount = c.VisitCount,
+                CreatedAt = c.CreatedAt,
+                LastVisitAt = c.LastVisitAt
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<CustomerListResponseDto>.Ok(new CustomerListResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        }));
+    }
+
     [HttpGet("subscription")]
     public async Task<ActionResult<ApiResponse<SubscriptionAccessDto>>> GetSubscription()
     {

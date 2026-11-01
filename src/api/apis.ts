@@ -14,6 +14,8 @@ import type {
   MySubscriptionDto,
   SubscriptionPlanDto,
   SubscriptionUpgradeRequestDto,
+  CustomerListItemDto,
+  CustomerListResponseDto,
   SystemNotificationDto,
   StaffDto,
   CreateStaffRequest,
@@ -264,6 +266,10 @@ export const meApi = {
     const res = await apiClient.delete<ApiResponse<any>>('/me/subscription/my-request');
     return res.data;
   },
+  getCustomers: async (params?: { search?: string; page?: number; pageSize?: number }) => {
+    const res = await apiClient.get<ApiResponse<CustomerListResponseDto>>('/me/customers', { params });
+    return res.data.data;
+  },
   _legacyUpgrade: async (planCode: string) => {
     const res = await apiClient.post<ApiResponse<MySubscriptionDto>>('/me/subscription/upgrade', { planCode });
     return res.data.data;
@@ -498,6 +504,10 @@ export const systemAdminApi = {
   rejectSubscriptionRequest: async (id: number, reason?: string) => {
     const res = await apiClient.put<ApiResponse<any>>(`/system/subscription-requests/${id}/reject`, { reason });
     return res.data;
+  },
+  getCustomers: async (params?: { search?: string; tenantId?: number; page?: number; pageSize?: number }) => {
+    const res = await apiClient.get<ApiResponse<CustomerListResponseDto>>('/system/customers', { params });
+    return res.data.data;
   },
   updatePlan: async (code: string, payload: any) => {
     const res = await apiClient.put<ApiResponse<any>>(`/system/plans/${encodeURIComponent(code)}`, payload);

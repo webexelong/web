@@ -7,18 +7,24 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
         public int ActiveSubscriptions { get; set; }
         public int TrialingSubscriptions { get; set; }
         public int GracePeriodSubscriptions { get; set; }
+        public int SuspendedSubscriptions { get; set; }
+        public decimal MonthlyRecurringRevenue { get; set; }
         public decimal PaidRevenue { get; set; }
         public List<SubscriptionPlanReportDto> Plans { get; set; } = new();
     }
 
     public class SubscriptionPlanReportDto
     {
+        public string Code { get; set; } = string.Empty;
         public string PlanCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public decimal MonthlyPrice { get; set; }
         public int TenantCount { get; set; }
         public decimal MonthlyRevenue { get; set; }
     }
+
     /// <summary>
-    /// Thống kê doanh thu theo ngày
+    /// Doanh thu theo từng ngày trong tuần gần nhất
     /// </summary>
     public class DailyRevenueDto
     {
@@ -63,6 +69,30 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
         public int TableCount { get; set; }
         public int OrderCount { get; set; }
         public decimal TotalGmv { get; set; }
+        public int CustomerCount { get; set; }
+    }
+
+    public class CustomerListItemDto
+    {
+        public int CustomerId { get; set; }
+        public int TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string? Name { get; set; }
+        public int TotalPoints { get; set; }
+        public decimal TotalSpent { get; set; }
+        public int VisitCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? LastVisitAt { get; set; }
+    }
+
+    public class CustomerListResponseDto
+    {
+        public List<CustomerListItemDto> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages => (int)Math.Ceiling((double)TotalCount / (PageSize > 0 ? PageSize : 10));
     }
 
     /// <summary>
@@ -114,6 +144,7 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
     public class SubscriptionPlanConfigDto
     {
         public string Code { get; set; } = string.Empty;
+        public string PlanCode { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public decimal MonthlyPrice { get; set; }
         public int MaxStores { get; set; }
