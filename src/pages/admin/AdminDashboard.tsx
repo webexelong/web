@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useStore } from '../../store/useStore';
 import { analyticsApi, orderApi, menuApi, meApi } from '../../api/apis';
 import type { MySubscriptionDto } from '../../types/apiTypes';
 import type { ShiftOperationsDto, ActiveTableStatusDto, ShiftStockAlertDto } from '../../types/apiTypes';
@@ -26,7 +27,8 @@ import {
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
-  const activeStoreId = user?.storeId ?? 0;
+  const storeIdFromStore = useStore(state => state.currentStoreId);
+  const activeStoreId = storeIdFromStore || user?.storeId || 0;
 
 
   const [shiftData, setShiftData] = useState<ShiftOperationsDto | null>(null);
