@@ -810,7 +810,7 @@ namespace WebCafe.Backend.Services.Implementation
 
             // Staff may mark a cash order as paid after serving it. PayOS orders
             // already have a completed payment and will not create a duplicate.
-            if (newStatus == OrderStatus.Paid)
+            if (newStatus == OrderStatus.Paid || newStatus == OrderStatus.Completed || newStatus == "completed")
             {
                 var hasCompletedPayment = await _db.Payments.AnyAsync(p => p.OrderId == orderId && p.Status == PaymentStatuses.Completed);
                 if (!hasCompletedPayment)
@@ -825,6 +825,15 @@ namespace WebCafe.Backend.Services.Implementation
                         ProcessedByStaffId = staffId,
                         CreatedAt = DateTime.UtcNow
                     });
+                }
+
+                try
+                {
+                    await ApplyPostPaymentBenefitsAsync(order.OrderId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Warning: ApplyPostPaymentBenefits failed for order {order.OrderId}: {ex.Message}");
                 }
             }
 
@@ -1071,7 +1080,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .ToListAsync();
 
             var todayPaidOrders = todayAllOrders
-                .Where(o => o.Status == OrderStatus.Paid || o.Payments.Any(p => p.Status == PaymentStatuses.Completed))
+                .Where(o => o.Status == OrderStatus.Paid || o.Status == OrderStatus.Completed || o.Payments.Any(p => p.Status == PaymentStatuses.Completed))
                 .ToList();
             var todayRevenue = todayPaidOrders.Sum(o => o.TotalAmount);
 
@@ -1080,7 +1089,7 @@ namespace WebCafe.Backend.Services.Implementation
             var yesterdayPaidOrders = await _db.Orders
                 .Include(o => o.Payments)
                 .Where(o => o.StoreId == storeId && o.CreatedAt >= yesterday && o.CreatedAt <= yesterdayTimeLimit && 
-                    (o.Status == OrderStatus.Paid || o.Payments.Any(p => p.Status == PaymentStatuses.Completed)))
+                    (o.Status == OrderStatus.Paid || o.Status == OrderStatus.Completed || o.Payments.Any(p => p.Status == PaymentStatuses.Completed)))
                 .ToListAsync();
             var yesterdayRevenue = yesterdayPaidOrders.Sum(o => o.TotalAmount);
 
@@ -1102,11 +1111,15 @@ namespace WebCafe.Backend.Services.Implementation
 
             var cashRevenue = todayPayments.Where(p => p.Method == PaymentMethods.Cash).Sum(p => p.Amount);
             var bankTransferRevenue = todayPayments.Where(p => p.Method != PaymentMethods.Cash).Sum(p => p.Amount);
+            if (cashRevenue + bankTransferRevenue < todayRevenue)
+            {
+                cashRevenue += (todayRevenue - (cashRevenue + bankTransferRevenue));
+            }
             // Queue stats
             var pendingCount = todayAllOrders.Count(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.Confirmed);
             var preparingCount = todayAllOrders.Count(o => o.Status == OrderStatus.Preparing);
             var readyCount = todayAllOrders.Count(o => o.Status == OrderStatus.Ready);
-            var servedCount = todayAllOrders.Count(o => o.Status == OrderStatus.Served || o.Status == OrderStatus.Paid);
+            var servedCount = todayAllOrders.Count(o => o.Status == OrderStatus.Served || o.Status == OrderStatus.Paid || o.Status == OrderStatus.Completed);
 
             // Table status & Live floor map
             var tables = await _db.Tables.Where(t => t.StoreId == storeId && t.IsActive).OrderBy(t => t.TableNumber).ToListAsync();
@@ -1114,7 +1127,7 @@ namespace WebCafe.Backend.Services.Implementation
             var activeTablesList = new List<ActiveTableStatusDto>();
 
             // Active orders that are occupying tables
-            var activeOrders = todayAllOrders.Where(o => o.Status != OrderStatus.Paid && o.Status != OrderStatus.Cancelled).ToList();
+            var activeOrders = todayAllOrders.Where(o => o.Status != OrderStatus.Paid && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled).ToList();
 
             foreach (var t in tables)
             {
@@ -1567,7 +1580,7 @@ namespace WebCafe.Backend.Services.Implementation
                 .Include(oi => oi.MenuItem)
                     .ThenInclude(mi => mi!.Category)
                 .Where(oi => oi.Order!.TenantId == tenantId &&
-                            oi.Order.Status == OrderStatus.Paid &&
+                            (oi.Order.Status == OrderStatus.Paid || oi.Order.Status == OrderStatus.Completed) &&
                             oi.Order.CreatedAt >= fromDate &&
                             oi.Order.CreatedAt < toDate.Date.AddDays(1))
                 .GroupBy(oi => new 

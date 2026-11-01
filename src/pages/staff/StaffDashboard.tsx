@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, type MenuItem } from '../../store/useStore';
 import { paymentApi } from '../../api/apis';
@@ -57,8 +57,8 @@ export default function StaffDashboard() {
   
   // Completed/Served/Paid orders
   const readyOrders = orders.filter(o => o.status === 'ready' || o.status === 'done' || o.status === 'served');
-  const paidOrders = orders.filter(o => o.status === 'paid');
-  const completedOrders = orders.filter(o => o.status === 'ready' || o.status === 'done' || o.status === 'served' || o.status === 'paid');
+  const paidOrders = orders.filter(o => o.status === 'paid' || (o.status as string) === 'completed');
+  const completedOrders = orders.filter(o => o.status === 'ready' || o.status === 'done' || o.status === 'served' || o.status === 'paid' || (o.status as string) === 'completed');
   const completedOrdersCount = completedOrders.length;
 
   // Cups served calculation from all processed orders
@@ -66,7 +66,7 @@ export default function StaffDashboard() {
     return sum + (order.items?.reduce((iSum, item) => iSum + item.quantity, 0) || 0);
   }, 0);
 
-  // Revenue: ONLY count orders that are PAID!
+  // Revenue: ONLY count orders that are PAID or COMPLETED!
   const totalRevenue = paidOrders.reduce((sum, order) => sum + (order.total || 0), 0);
   const pendingCollectionRevenue = readyOrders.reduce((sum, order) => sum + (order.total || 0), 0);
 
@@ -255,7 +255,7 @@ export default function StaffDashboard() {
                   const isPending = order.status === 'pending';
                   const isPreparing = order.status === 'preparing';
                   const isReady = order.status === 'ready' || order.status === 'done' || order.status === 'served';
-                  const isPaid = order.status === 'paid';
+                  const isPaid = order.status === 'paid' || (order.status as string) === 'completed';
 
                   return (
                     <div
