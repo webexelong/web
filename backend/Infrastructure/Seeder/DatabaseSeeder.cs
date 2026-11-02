@@ -12,7 +12,7 @@ namespace WebCafe.Backend.Infrastructure.Seeder
             if (!await db.SubscriptionPlans.AnyAsync())
             {
                 db.SubscriptionPlans.AddRange(
-                    new SubscriptionPlan { Code = "basic", Name = "Basic", MonthlyPrice = 239000, MaxStores = 1, MaxStaff = 5, MaxTablesPerStore = 20 },
+                    new SubscriptionPlan { Code = "basic", Name = "Basic", MonthlyPrice = 300000, MaxStores = 1, MaxStaff = 5, MaxTablesPerStore = 20 },
                     new SubscriptionPlan { Code = "premium", Name = "Premium", MonthlyPrice = 1299000, MaxStores = 5, MaxStaff = 20, MaxTablesPerStore = 50 },
                     new SubscriptionPlan { Code = "pro", Name = "Pro", MonthlyPrice = 1999000, MaxStores = 10, MaxStaff = 50, MaxTablesPerStore = 100 });
                 await db.SaveChangesAsync();
@@ -28,7 +28,7 @@ namespace WebCafe.Backend.Infrastructure.Seeder
             // tùy chỉnh khác các giá trị cũ sẽ được giữ nguyên.
             foreach (var plan in seededPlans)
             {
-                if (plan.Code == "basic" && (plan.MonthlyPrice == 0 || plan.MonthlyPrice == 290000)) plan.MonthlyPrice = 239000;
+                if (plan.Code == "basic" && (plan.MonthlyPrice == 0 || plan.MonthlyPrice == 290000 || plan.MonthlyPrice == 239000)) plan.MonthlyPrice = 300000;
                 if (plan.Code == "premium" && (plan.MonthlyPrice == 499000 || plan.MonthlyPrice == 1500000)) plan.MonthlyPrice = 1299000;
                 if (plan.Code == "pro" && plan.MonthlyPrice == 999000) plan.MonthlyPrice = 1999000;
                 plan.Name = plan.Code switch { "free" => "Miễn Phí", "basic" => "Basic", "premium" => "Premium", "pro" => "Pro", _ => plan.Name };

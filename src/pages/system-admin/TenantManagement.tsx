@@ -649,58 +649,81 @@ export default function TenantManagement() {
               <div>
                 <label className="block font-bold text-on-surface mb-2">Chọn Gói Dịch Vụ SaaS</label>
                 <div className="space-y-2">
+                  {/* Gói Free */}
                   <label className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition ${
-                    editPlan === 'basic' ? 'bg-secondary-container/40 border-primary' : 'bg-surface-container-low border-outline-variant/20'
+                    editPlan === 'free' ? 'bg-secondary-container/40 border-primary ring-1 ring-primary/30' : 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="radio" 
+                        name="planRadio" 
+                        checked={editPlan === 'free'} 
+                        onChange={() => { setEditPlan('free'); setEditMaxStores(1); }} 
+                        className="text-primary"
+                      />
+                      <div>
+                        <strong className="block text-on-surface">Miễn Phí (Free)</strong>
+                        <span className="text-[11px] text-on-surface-variant">1 Quán - 2 Nhân viên - 5 Bàn QR</span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-emerald-600">0đ/th</span>
+                  </label>
+
+                  {/* Gói Basic */}
+                  <label className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition ${
+                    editPlan === 'basic' ? 'bg-secondary-container/40 border-primary ring-1 ring-primary/30' : 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
                   }`}>
                     <div className="flex items-center gap-3">
                       <input 
                         type="radio" 
                         name="planRadio" 
                         checked={editPlan === 'basic'} 
-                        onChange={() => setEditPlan('basic')} 
+                        onChange={() => { setEditPlan('basic'); setEditMaxStores(1); }} 
                         className="text-primary"
                       />
                       <div>
-                        <strong className="block text-on-surface">Starter (Cơ bản)</strong>
-                        <span className="text-[11px] text-on-surface-variant">1 Quán - 10 Bàn QR</span>
+                        <strong className="block text-on-surface">Basic (Cơ bản)</strong>
+                        <span className="text-[11px] text-on-surface-variant">1 Quán - 5 Nhân viên - 20 Bàn QR</span>
                       </div>
                     </div>
-                    <span className="font-bold text-primary">239k/th</span>
+                    <span className="font-bold text-primary">300.000đ/th</span>
                   </label>
 
+                  {/* Gói Premium */}
                   <label className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition ${
-                    editPlan === 'pro' ? 'bg-secondary-container/40 border-primary' : 'bg-surface-container-low border-outline-variant/20'
+                    editPlan === 'premium' ? 'bg-secondary-container/40 border-primary ring-1 ring-primary/30' : 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
                   }`}>
                     <div className="flex items-center gap-3">
                       <input 
                         type="radio" 
                         name="planRadio" 
-                        checked={editPlan === 'pro'} 
-                        onChange={() => setEditPlan('pro')} 
+                        checked={editPlan === 'premium'} 
+                        onChange={() => { setEditPlan('premium'); setEditMaxStores(5); }} 
                         className="text-primary"
                       />
                       <div>
-                        <strong className="block text-on-surface">Pro (Phổ thông)</strong>
-                        <span className="text-[11px] text-on-surface-variant">3 Chi nhánh - Không giới hạn bàn</span>
+                        <strong className="block text-on-surface">Premium (Phổ thông)</strong>
+                        <span className="text-[11px] text-on-surface-variant">5 Chi nhánh - 20 NV - 50 Bàn QR</span>
                       </div>
                     </div>
                     <span className="font-bold text-primary">1.299tr/th</span>
                   </label>
 
+                  {/* Gói Pro */}
                   <label className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition ${
-                    editPlan === 'premium' || editPlan === 'enterprise' ? 'bg-secondary-container/40 border-primary' : 'bg-surface-container-low border-outline-variant/20'
+                    editPlan === 'pro' || editPlan === 'enterprise' ? 'bg-secondary-container/40 border-primary ring-1 ring-primary/30' : 'bg-surface-container-low border-outline-variant/20 hover:border-outline-variant/40'
                   }`}>
                     <div className="flex items-center gap-3">
                       <input 
                         type="radio" 
                         name="planRadio" 
-                        checked={editPlan === 'premium' || editPlan === 'enterprise'} 
-                        onChange={() => setEditPlan('premium')} 
+                        checked={editPlan === 'pro' || editPlan === 'enterprise'} 
+                        onChange={() => { setEditPlan('pro'); setEditMaxStores(10); }} 
                         className="text-primary"
                       />
                       <div>
-                        <strong className="block text-on-surface">Enterprise (Chuỗi Lớn)</strong>
-                        <span className="text-[11px] text-on-surface-variant">Không giới hạn điểm bán & BOM</span>
+                        <strong className="block text-on-surface">Pro (Nâng cao & Chuỗi lớn)</strong>
+                        <span className="text-[11px] text-on-surface-variant">10 Chi nhánh - 50 NV - 100 Bàn QR</span>
                       </div>
                     </div>
                     <span className="font-bold text-primary">1.999tr/th</span>
@@ -834,12 +857,20 @@ export default function TenantManagement() {
                   <label className="block font-bold text-on-surface mb-1">Gói Dịch Vụ SaaS *</label>
                   <select
                     value={createForm.plan}
-                    onChange={(e) => setCreateForm({ ...createForm, plan: e.target.value })}
+                    onChange={(e) => {
+                      const p = e.target.value;
+                      setCreateForm({ 
+                        ...createForm, 
+                        plan: p,
+                        maxStores: p === 'free' || p === 'basic' ? 1 : p === 'premium' ? 5 : 10
+                      });
+                    }}
                     className="w-full px-3.5 py-2.5 bg-surface-container-lowest border border-outline-variant/30 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    <option value="basic">Gói Basic (239.000đ/tháng)</option>
-                    <option value="premium">Gói Premium (1.299.000đ/tháng)</option>
-                    <option value="pro">Gói Pro (1.999.000đ/tháng)</option>
+                    <option value="free">Gói Miễn Phí (0đ/tháng - 5 bàn)</option>
+                    <option value="basic">Gói Basic (300.000đ/tháng - 20 bàn)</option>
+                    <option value="premium">Gói Premium (1.299.000đ/tháng - 50 bàn)</option>
+                    <option value="pro">Gói Pro (1.999.000đ/tháng - 100 bàn)</option>
                   </select>
                 </div>
               </div>
