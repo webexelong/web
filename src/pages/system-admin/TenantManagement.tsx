@@ -386,15 +386,25 @@ export default function TenantManagement() {
 
                   {/* Plan */}
                   <td className="py-4 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      tenant.plan === 'premium' || tenant.plan === 'enterprise'
-                        ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                        : tenant.plan === 'pro'
-                        ? 'bg-secondary-container text-on-secondary-container border border-primary/20'
-                        : 'bg-surface-container text-on-surface-variant border border-outline-variant/30'
-                    }`}>
-                      {tenant.plan || 'basic'}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        tenant.plan === 'premium' || tenant.plan === 'enterprise'
+                          ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                          : tenant.plan === 'pro'
+                          ? 'bg-secondary-container text-on-secondary-container border border-primary/20'
+                          : tenant.plan === 'basic'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                          : 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                      }`}>
+                        {tenant.plan === 'free' ? 'MIỄN PHÍ' : (tenant.plan || 'basic')}
+                      </span>
+                      {(tenant.isTrial || tenant.subscriptionStatus === 'trialing') && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 uppercase tracking-tight">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          Dùng thử (Trial)
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Size: Stores & Tables */}

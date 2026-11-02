@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace WebCafe.Backend.Models.DTOs.SystemAdmin
 {
@@ -24,18 +24,18 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
     }
 
     /// <summary>
-    /// Doanh thu theo từng ngày trong tuần gần nhất
+    /// Doanh thu theo tá»«ng ngÃ y trong tuáº§n gáº§n nháº¥t
     /// </summary>
     public class DailyRevenueDto
     {
         public string Date { get; set; } = string.Empty; // yyyy-MM-dd
-        public string DayLabel { get; set; } = string.Empty; // T2, T3... Hôm nay
+        public string DayLabel { get; set; } = string.Empty; // T2, T3... HÃ´m nay
         public decimal Revenue { get; set; }
         public int OrderCount { get; set; }
     }
 
     /// <summary>
-    /// Thống kê tổng quan toàn sàn SaaS dành cho Super Admin
+    /// Thá»‘ng kÃª tá»•ng quan toÃ n sÃ n SaaS dÃ nh cho Super Admin
     /// </summary>
     public class PlatformStatsDto
     {
@@ -50,7 +50,7 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
     }
 
     /// <summary>
-    /// Thông tin chi tiết của một quán cafe đối tác
+    /// ThÃ´ng tin chi tiáº¿t cá»§a má»™t quÃ¡n cafe Ä‘á»‘i tÃ¡c
     /// </summary>
     public class TenantDetailDto
     {
@@ -70,6 +70,9 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
         public int OrderCount { get; set; }
         public decimal TotalGmv { get; set; }
         public int CustomerCount { get; set; }
+        public bool IsTrial { get; set; }
+        public DateTime? TrialEndsAt { get; set; }
+        public string? SubscriptionStatus { get; set; }
     }
 
     public class CustomerListItemDto
@@ -96,48 +99,48 @@ namespace WebCafe.Backend.Models.DTOs.SystemAdmin
     }
 
     /// <summary>
-    /// DTO tạo một quán cafe / đối tác mới
+    /// DTO táº¡o má»™t quÃ¡n cafe / Ä‘á»‘i tÃ¡c má»›i
     /// </summary>
     public class CreateTenantRequest
     {
-        [Required(ErrorMessage = "Tên quán / thương hiệu là bắt buộc.")]
+        [Required(ErrorMessage = "TÃªn quÃ¡n / thÆ°Æ¡ng hiá»‡u lÃ  báº¯t buá»™c.")]
         public string Name { get; set; } = string.Empty;
 
         public string? Slug { get; set; }
 
-        [Required(ErrorMessage = "Họ tên chủ quán là bắt buộc.")]
+        [Required(ErrorMessage = "Há» tÃªn chá»§ quÃ¡n lÃ  báº¯t buá»™c.")]
         public string OwnerName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Email chủ quán là bắt buộc.")]
-        [EmailAddress(ErrorMessage = "Email không đúng định dạng.")]
+        [Required(ErrorMessage = "Email chá»§ quÃ¡n lÃ  báº¯t buá»™c.")]
+        [EmailAddress(ErrorMessage = "Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng.")]
         public string OwnerEmail { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Số điện thoại chủ quán là bắt buộc.")]
+        [Required(ErrorMessage = "Sá»‘ Ä‘iá»‡n thoáº¡i chá»§ quÃ¡n lÃ  báº¯t buá»™c.")]
         public string OwnerPhone { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Mật khẩu khởi tạo là bắt buộc.")]
-        [MinLength(6, ErrorMessage = "Mật khẩu tối thiểu 6 ký tự.")]
+        [Required(ErrorMessage = "Máº­t kháº©u khá»Ÿi táº¡o lÃ  báº¯t buá»™c.")]
+        [MinLength(6, ErrorMessage = "Máº­t kháº©u tá»‘i thiá»ƒu 6 kÃ½ tá»±.")]
         public string OwnerPassword { get; set; } = string.Empty;
 
         public string? LogoUrl { get; set; }
         public string Plan { get; set; } = "basic";
         public int MaxStores { get; set; } = 1;
 
-        // Thông tin chi nhánh đầu tiên
+        // ThÃ´ng tin chi nhÃ¡nh Ä‘áº§u tiÃªn
         public string? InitialStoreName { get; set; }
         public string? InitialStoreAddress { get; set; }
         public string? InitialStorePhone { get; set; }
     }
 
     /// <summary>
-    /// DTO cập nhật gói dịch vụ của quán
+    /// DTO cáº­p nháº­t gÃ³i dá»‹ch vá»¥ cá»§a quÃ¡n
     /// </summary>
     public class UpdateTenantPlanRequest
     {
-        [Required(ErrorMessage = "Gói dịch vụ là bắt buộc.")]
+        [Required(ErrorMessage = "GÃ³i dá»‹ch vá»¥ lÃ  báº¯t buá»™c.")]
         public string Plan { get; set; } = "basic";
 
-        [Range(1, 100, ErrorMessage = "Số chi nhánh tối đa phải từ 1 đến 100.")]
+        [Range(1, 100, ErrorMessage = "Sá»‘ chi nhÃ¡nh tá»‘i Ä‘a pháº£i tá»« 1 Ä‘áº¿n 100.")]
         public int MaxStores { get; set; } = 1;
     }
 

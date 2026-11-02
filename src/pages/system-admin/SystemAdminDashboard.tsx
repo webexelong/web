@@ -327,15 +327,25 @@ export default function SystemAdminDashboard() {
                     <div className="text-[11px] text-on-surface-variant">{t.ownerEmail}</div>
                   </td>
                   <td className="py-3.5 px-3">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      t.plan === 'premium' || t.plan === 'enterprise'
-                        ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                        : t.plan === 'pro'
-                        ? 'bg-secondary-container text-on-secondary-container border border-primary/20'
-                        : 'bg-surface-container text-on-surface-variant border border-outline-variant/30'
-                    }`}>
-                      {t.plan || 'basic'}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        t.plan === 'premium' || t.plan === 'enterprise'
+                          ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                          : t.plan === 'pro'
+                          ? 'bg-secondary-container text-on-secondary-container border border-primary/20'
+                          : t.plan === 'basic'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                          : 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                      }`}>
+                        {t.plan === 'free' ? 'MIỄN PHÍ' : (t.plan || 'basic')}
+                      </span>
+                      {(t.isTrial || t.subscriptionStatus === 'trialing') && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 uppercase tracking-tight">
+                          <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse"></span>
+                          Trial
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-3">
                     <span className="font-bold text-on-surface">{t.storeCount} chi nhánh</span>

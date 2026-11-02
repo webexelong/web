@@ -804,6 +804,9 @@ export interface TenantDetailDto {
   orderCount: number;
   totalGmv: number;
   customerCount?: number;
+  isTrial?: boolean;
+  trialEndsAt?: string | null;
+  subscriptionStatus?: string | null;
 }
 
 export interface CreateTenantDto {
