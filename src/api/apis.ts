@@ -539,7 +539,7 @@ export const customerApi = {
     });
     return res.data.data;
   },
-  getLoyaltyHistory: async (params?: { phone?: string; pageNumber?: number; pageSize?: number }) => {
+  getLoyaltyHistory: async (params?: { phone?: string; pageNumber?: number; pageSize?: number; storeId?: number; tenantId?: number }) => {
     const res = await apiClient.get<ApiResponse<PaginationRes<CustomerLoyaltyHistoryDto>>>('/customer/loyalty-history', {
       params
     });

@@ -56,7 +56,11 @@ export default function Profile() {
     if (!user?.username) return;
     setLoadingHistory(true);
     try {
-      const res = await customerApi.getLoyaltyHistory({ phone: user.username, pageSize: 5 });
+      const res = await customerApi.getLoyaltyHistory({ 
+        phone: user.username, 
+        storeId: activeStoreId > 0 ? activeStoreId : undefined,
+        pageSize: 5 
+      });
       setLoyaltyHistory(res.items);
     } catch (err) {
       console.warn('Lỗi khi tải lịch sử điểm:', err);

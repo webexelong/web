@@ -74,6 +74,16 @@ namespace WebCafe.Backend.Controllers
                 currentCustomer.Tenant = targetTenant;
             }
 
+            // Đồng bộ điểm tích lũy với sổ cái LoyaltyPoints nếu có sự lệch điểm
+            var ledgerPoints = await _db.LoyaltyPoints
+                .Where(lp => lp.CustomerId == currentCustomer.CustomerId)
+                .SumAsync(lp => (int?)lp.Points) ?? 0;
+            if (ledgerPoints > 0 && currentCustomer.TotalPoints != ledgerPoints)
+            {
+                currentCustomer.TotalPoints = Math.Max(0, ledgerPoints);
+                await _db.SaveChangesAsync();
+            }
+
             var pointsToMoney = currentCustomer.Tenant?.PointsToMoney ?? 200;
             var pointsPerAmount = currentCustomer.Tenant?.PointsPerAmount ?? 10000;
 
@@ -263,7 +273,8 @@ namespace WebCafe.Backend.Controllers
         [HttpGet("loyalty-history")]
         public async Task<ActionResult<ApiResponse<PaginationRes<CustomerLoyaltyHistoryDto>>>> GetLoyaltyHistory(
             [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10)
+            [FromQuery] int pageSize = 10,
+            [FromQuery] int? storeId = null)
         {
             var customer = await _db.Customers.FirstOrDefaultAsync(c =>
                 c.CustomerId == _currentUser.CustomerId);
@@ -272,8 +283,22 @@ namespace WebCafe.Backend.Controllers
                 return NotFound(ApiResponse<PaginationRes<CustomerLoyaltyHistoryDto>>.Fail("Không tìm thấy khách hàng."));
             }
 
+            var phone = customer.Phone;
+            int targetTenantId = customer.TenantId;
+            if (storeId.HasValue && storeId.Value > 0)
+            {
+                var store = await _db.Stores.FirstOrDefaultAsync(s => s.StoreId == storeId.Value);
+                if (store != null)
+                {
+                    targetTenantId = store.TenantId;
+                }
+            }
+
+            var targetCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone == phone && c.TenantId == targetTenantId);
+            var targetCustomerId = targetCustomer?.CustomerId ?? customer.CustomerId;
+
             var query = _db.LoyaltyPoints
-                .Where(lp => lp.CustomerId == customer.CustomerId)
+                .Where(lp => lp.CustomerId == targetCustomerId)
                 .OrderByDescending(lp => lp.CreatedAt);
 
             var totalRecords = await query.CountAsync();

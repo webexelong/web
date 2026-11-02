@@ -506,10 +506,26 @@ namespace WebCafe.Backend.Services.Implementation
             // 5. Tính giảm giá theo điểm tích lũy
             int pointsUsed = 0;
             decimal pointsDiscount = 0;
-            if (customer != null && dto.PointsToUse > 0 && customer.TotalPoints >= dto.PointsToUse)
+            if (dto.PointsToUse > 0)
             {
+                if (customer == null)
+                    throw new AppException("Vui lòng đăng nhập tài khoản thành viên để sử dụng điểm tích lũy.");
+
+                var ledgerPoints = await _db.LoyaltyPoints
+                    .Where(lp => lp.CustomerId == customer.CustomerId)
+                    .SumAsync(lp => (int?)lp.Points) ?? 0;
+                if (ledgerPoints > customer.TotalPoints)
+                {
+                    customer.TotalPoints = ledgerPoints;
+                }
+
+                if (customer.TotalPoints < dto.PointsToUse)
+                    throw new AppException($"Số điểm tích lũy hiện có ({customer.TotalPoints} điểm) không đủ để dùng {dto.PointsToUse} điểm.");
+
+
                 pointsUsed = dto.PointsToUse;
-                pointsDiscount = pointsUsed * store.Tenant.PointsToMoney;
+                var rate = store.Tenant?.PointsToMoney > 0 ? store.Tenant.PointsToMoney : 200;
+                pointsDiscount = pointsUsed * rate;
             }
 
             decimal totalDiscount = discountAmount + pointsDiscount;

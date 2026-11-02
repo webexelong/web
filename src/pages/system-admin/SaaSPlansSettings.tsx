@@ -46,15 +46,29 @@ const FEATURE_NAME_MAP: Record<string, string> = {
 
 const DEFAULT_PLANS: SaaSPlan[] = [
   {
+    id: 'free',
+    name: 'Miễn Phí',
+    subtitle: 'Dành cho quán cafe mới mở bắt đầu trải nghiệm số hoá',
+    priceMonth: 0,
+    maxStores: 1,
+    maxTablesPerStore: 5,
+    features: [
+      '1 Điểm bán / Chi nhánh duy nhất',
+      'Tối đa 5 Bàn QR đặt món',
+      'Tối đa 2 Tài khoản nhân viên'
+    ],
+    description: 'Gói trải nghiệm miễn phí 14 ngày hoặc khởi đầu cho quán nhỏ: 1 chi nhánh, 2 nhân viên và tối đa 5 bàn QR.'
+  },
+  {
     id: 'basic',
     name: 'Basic',
     subtitle: 'Dành cho các quán cafe độc lập hoặc xe takeaway',
-    priceMonth: 239000,
+    priceMonth: 300000,
     maxStores: 1,
-    maxTablesPerStore: 10,
+    maxTablesPerStore: 20,
     features: [
       '1 Điểm bán / Chi nhánh duy nhất',
-      'Tối đa 10 Bàn QR đặt món',
+      'Tối đa 20 Bàn QR đặt món',
       'Menu điện tử & AI Gợi ý đồ uống',
       'Màn hình Bếp / Pha chế (KDS)',
       'Báo cáo doanh thu & đơn hàng cơ bản'
@@ -66,12 +80,12 @@ const DEFAULT_PLANS: SaaSPlan[] = [
     name: 'Premium',
     subtitle: 'Dành cho quán cafe vừa & chuỗi 2 - 3 chi nhánh',
     priceMonth: 1299000,
-    maxStores: 3,
-    maxTablesPerStore: null,
+    maxStores: 5,
+    maxTablesPerStore: 50,
     isPopular: true,
     features: [
-      'Tối đa 3 Điểm bán / Chi nhánh',
-      'Không giới hạn số bàn gắn mã QR',
+      'Tối đa 5 Điểm bán / Chi nhánh',
+      'Tối đa 50 Bàn QR đặt món',
       'Màn hình Điều phối & Thu ngân chuyên sâu',
       'Quản lý kho nguyên vật liệu & Định lượng BOM',
       'Cảnh báo nguyên liệu sắp hết',
@@ -85,11 +99,11 @@ const DEFAULT_PLANS: SaaSPlan[] = [
     name: 'Pro',
     subtitle: 'Dành cho thương hiệu FnB lớn & chuỗi nhượng quyền',
     priceMonth: 1999000,
-    maxStores: 99,
-    maxTablesPerStore: null,
+    maxStores: 10,
+    maxTablesPerStore: 100,
     features: [
-      'Không giới hạn số chi nhánh & điểm bán',
-      'Không giới hạn số bàn QR toàn hệ thống',
+      'Tối đa 10 Điểm bán / Chi nhánh',
+      'Tối đa 100 Bàn QR đặt món',
       'Tự động đồng bộ tồn kho giữa các cơ sở',
       'Báo cáo phân tích hành vi khách hàng & AI Analytics',
       'Tùy biến nhận diện thương hiệu (Custom Branding)',
@@ -105,7 +119,10 @@ export default function SaaSPlansSettings() {
   const [plans, setPlans] = useState<SaaSPlan[]>(() => {
     try {
       const saved = localStorage.getItem('system_saas_plans');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some(p => p.id === 'free')) return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
@@ -139,8 +156,8 @@ export default function SaaSPlansSettings() {
     setEditingPlanId(plan.id);
     setEditPrice(plan.priceMonth);
     setEditMaxStores(plan.maxStores);
-    setEditMaxStaff(plan.id === 'basic' ? 5 : plan.id === 'premium' ? 20 : 50);
-    setEditMaxTables(plan.maxTablesPerStore ?? 100);
+    setEditMaxStaff(plan.id === 'free' ? 2 : plan.id === 'basic' ? 5 : plan.id === 'premium' ? 20 : 50);
+    setEditMaxTables(plan.maxTablesPerStore ?? (plan.id === 'free' ? 5 : plan.id === 'basic' ? 20 : plan.id === 'premium' ? 50 : 100));
     setEditFeatures(Object.fromEntries(FEATURE_OPTIONS.map(([code]) => [code, Array.isArray(plan.features) ? plan.features.includes(code) : (plan.id !== 'basic')])));
   };
 
@@ -224,7 +241,7 @@ export default function SaaSPlansSettings() {
       </div>
 
       {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-stack-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-stack-lg">
         {plans.map(plan => {
           const isEditing = editingPlanId === plan.id;
 
