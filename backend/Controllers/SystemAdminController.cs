@@ -73,12 +73,16 @@ namespace WebCafe.Backend.Controllers
                 .Where(o => o.Status != "cancelled")
                 .SumAsync(o => (decimal?)o.TotalAmount) ?? 0m;
 
-            // Tính ước tính doanh thu thuê bao phần mềm dựa trên gói
+            // Tính ước tính doanh thu thuê bao phần mềm dựa trên các gói đang active thực tế
+            // Quán đang dùng thử (trialing) hoặc gói miễn phí (free) KHÔNG tính vào phí dịch vụ SaaS
             var activePlanPrices = await _db.SubscriptionPlans
                 .Where(p => p.IsActive)
-                .ToDictionaryAsync(p => p.Code.ToLower(), p => p.MonthlyPrice);
-            var tenants = await _db.Tenants.Where(t => t.IsActive).Select(t => t.Plan).ToListAsync();
-            decimal subscriptionRevenue = tenants.Sum(plan => activePlanPrices.TryGetValue((plan ?? "basic").ToLower(), out var price) ? price : 0m);
+                .ToDictionaryAsync(p => p.PlanId, p => p.MonthlyPrice);
+            var activeSubPlanIds = await _db.TenantSubscriptions
+                .Where(s => s.Status == "active")
+                .Select(s => s.PlanId)
+                .ToListAsync();
+            decimal subscriptionRevenue = activeSubPlanIds.Sum(pId => activePlanPrices.TryGetValue(pId, out var price) ? price : 0m);
 
             // Tính toán doanh thu thực tế 7 ngày gần nhất từ cơ sở dữ liệu Orders
             var now = DateTime.UtcNow;
@@ -231,10 +235,19 @@ namespace WebCafe.Backend.Controllers
                 .Select(g => new { TenantId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.TenantId, x => x.Count);
 
+            var subsPerTenant = await _db.TenantSubscriptions
+                .Where(s => tenantIds.Contains(s.TenantId) && s.Status != "cancelled")
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+            var latestSubByTenant = subsPerTenant
+                .GroupBy(s => s.TenantId)
+                .ToDictionary(g => g.Key, g => g.First());
+
             var result = tenants.Select(t =>
             {
                 var tableCount = tablesPerTenant.ContainsKey(t.TenantId) ? tablesPerTenant[t.TenantId] : 0;
                 var orderData = ordersPerTenant.ContainsKey(t.TenantId) ? ordersPerTenant[t.TenantId] : new { Count = 0, Gmv = 0m };
+                var hasSub = latestSubByTenant.TryGetValue(t.TenantId, out var sub);
 
                 return new TenantDetailDto
                 {
@@ -253,7 +266,10 @@ namespace WebCafe.Backend.Controllers
                     TableCount = tableCount,
                     OrderCount = orderData.Count,
                     TotalGmv = orderData.Gmv,
-                    CustomerCount = customersPerTenant.ContainsKey(t.TenantId) ? customersPerTenant[t.TenantId] : 0
+                    CustomerCount = customersPerTenant.ContainsKey(t.TenantId) ? customersPerTenant[t.TenantId] : 0,
+                    IsTrial = hasSub && sub!.Status == "trialing",
+                    TrialEndsAt = sub?.TrialEndsAt,
+                    SubscriptionStatus = sub?.Status ?? "active"
                 };
             }).ToList();
 
